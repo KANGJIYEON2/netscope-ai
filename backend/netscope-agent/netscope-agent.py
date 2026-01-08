@@ -12,13 +12,13 @@ from datetime import datetime, UTC
 # =========================
 API_URL = "http://127.0.0.1:8000/logs"
 
-# 로그 필터 룰 (실무 기준)
+# 로그 필터 룰 (Agent-side Rule v0)
 KEYWORDS = re.compile(
     r"\b(ERROR|WARN)\b|\bTIMEOUT\b|\bTIMED\s+OUT\b|\b5\d\d\b",
     re.IGNORECASE,
 )
 
-# 제어문자 제거용
+# 제어문자 제거
 CONTROL_CHARS = re.compile(r"[\x00-\x1F\x7F-\x9F]")
 
 LEVEL_REGEX = re.compile(r"\b(ERROR|WARN|INFO)\b", re.IGNORECASE)
@@ -26,18 +26,18 @@ LEVEL_REGEX = re.compile(r"\b(ERROR|WARN|INFO)\b", re.IGNORECASE)
 # =========================
 # UTIL
 # =========================
-def hostname():
+def hostname() -> str:
     return socket.gethostname()
 
-def now_iso():
+def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 def normalize(line: str) -> str:
     """
-    PowerShell / Windows BOM / 제어문자 제거
+    BOM / 제어문자 제거 (Windows, PowerShell 대응)
     """
-    line = line.replace("\ufeff", "")        # BOM 제거
-    line = CONTROL_CHARS.sub("", line)        # 제어문자 제거
+    line = line.replace("\ufeff", "")
+    line = CONTROL_CHARS.sub("", line)
     return line.strip()
 
 def detect_level(line: str) -> str:
@@ -48,9 +48,11 @@ def detect_level(line: str) -> str:
 
 def is_interesting(line: str) -> bool:
     """
-    Rule Engine v0 (Agent-side)
+    Agent-side Rule Engine v0
     """
-    if detect_level(line) in ("ERROR", "WARN"):
+    level = detect_level(line)
+
+    if level in ("ERROR", "WARN"):
         return True
 
     if re.search(r"\bTIMEOUT\b|\bTIMED\s+OUT\b", line, re.IGNORECASE):
@@ -64,7 +66,13 @@ def is_interesting(line: str) -> bool:
 # =========================
 # SEND
 # =========================
-def send_log(line: str, source: str):
+def send_log(
+    *,
+    line: str,
+    source: str,
+    tenant_id: str,
+    project_id: str,
+):
     payload = {
         "source": source,
         "message": line,
@@ -73,13 +81,23 @@ def send_log(line: str, source: str):
         "host": hostname(),
     }
 
+    headers = {
+        "X-Tenant-ID": tenant_id,
+        "X-Project-ID": project_id,
+    }
+
     print("\n[AGENT] ▶ POST /logs")
+    print("[AGENT] headers:", headers)
     print("[AGENT] payload:", payload)
 
     try:
-        r = requests.post(API_URL, json=payload, timeout=3)
+        r = requests.post(
+            API_URL,
+            json=payload,
+            headers=headers,
+            timeout=3,
+        )
         print("[AGENT] status:", r.status_code)
-        print("[AGENT] response:", r.text)
         r.raise_for_status()
         print(f"[SENT] {payload['level']} {line}")
     except Exception as e:
@@ -88,9 +106,18 @@ def send_log(line: str, source: str):
 # =========================
 # TAIL
 # =========================
-def tail_file(path: str, source: str):
+def tail_file(
+    *,
+    path: str,
+    source: str,
+    tenant_id: str,
+    project_id: str,
+):
     print("[BOOT] NETSCOPE AGENT STARTED")
     print("[BOOT] watching:", path)
+    print("[BOOT] source:", source)
+    print("[BOOT] tenant:", tenant_id)
+    print("[BOOT] project:", project_id)
     print("[BOOT] api:", API_URL)
     print()
 
@@ -122,7 +149,12 @@ def tail_file(path: str, source: str):
 
                     if is_interesting(line):
                         print("[DEBUG] ✔ rule matched")
-                        send_log(line, source)
+                        send_log(
+                            line=line,
+                            source=source,
+                            tenant_id=tenant_id,
+                            project_id=project_id,
+                        )
                     else:
                         print("[DEBUG] ✘ ignored")
 
@@ -138,11 +170,22 @@ def tail_file(path: str, source: str):
 # =========================
 def main():
     parser = argparse.ArgumentParser("NETSCOPE Agent (tail mode)")
+
     parser.add_argument("--path", required=True, help="log file path")
     parser.add_argument("--source", default="unknown-service", help="service name")
+
+    # ✅ 멀티 테넌트 식별
+    parser.add_argument("--tenant", required=True, help="tenant id")
+    parser.add_argument("--project", required=True, help="project id")
+
     args = parser.parse_args()
 
-    tail_file(args.path, args.source)
+    tail_file(
+        path=args.path,
+        source=args.source,
+        tenant_id=args.tenant,
+        project_id=args.project,
+    )
 
 if __name__ == "__main__":
     main()

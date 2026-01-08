@@ -9,6 +9,7 @@ Logs are transient.
 Signals are persistent.
 Analysis is the product.
 
+```text
 ┌──────────────────────┐
 │ Application / OS │
 │ (Log Stream Source) │
@@ -83,3 +84,4 @@ Analysis is the product.
 │ - Optional GPT enrichment │
 │ - Human-readable reports │
 └──────────────────────────────────────┘
+```

@@ -1,0 +1,17 @@
+[project]
+name = "netscope-backend"
+version = "0.1.0"
+description = "AI-powered network log analysis backend"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "python-dotenv",
+    "httpx",
+    "rich",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

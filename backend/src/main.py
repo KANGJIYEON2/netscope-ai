@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from api.v1.logs import router as logs_router
 from api.v1.analysis import router as analysis_router
 from api.v1.ingest import router as ingest_router
+from api.v1.reports import router as report_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="NETSCOPE AI")
@@ -20,3 +21,5 @@ app.add_middleware(
 app.include_router(logs_router)
 app.include_router(analysis_router)
 app.include_router(ingest_router)
+
+app.include_router(report_router)

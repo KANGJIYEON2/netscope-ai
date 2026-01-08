@@ -1,31 +1,23 @@
-from collections import defaultdict
-from datetime import datetime, timedelta
+from ingest.signals import extract_signals
+from ingest.persist import persist_analysis
 
 
 class SignalAggregator:
-    """
-    In-memory signal aggregation (7-day window)
-    Raw logs are NEVER persisted.
-    """
+    def update(self, *, tenant_id: str, project_id: str, matches: list) -> None:
+        signals = extract_signals(matches)
 
-    def __init__(self):
-        # key = (tenant_id, project_id)
-        self.buffer = defaultdict(list)
+        confidence = min(
+            sum(s["score"] * s["count"] for s in signals),
+            1.0,
+        )
 
-    def update(self, *, tenant_id: str, project_id: str, matches: list[dict]):
-        key = (tenant_id, project_id)
-        now = datetime.utcnow()
+        aggregated = {
+            "confidence": confidence,
+            "signals": signals,
+        }
 
-        self.buffer[key].append((now, matches))
-        self._prune_old(key)
-
-    def _prune_old(self, key):
-        cutoff = datetime.utcnow() - timedelta(days=7)
-        self.buffer[key] = [
-            (ts, matches)
-            for ts, matches in self.buffer[key]
-            if ts >= cutoff
-        ]
-
-    def get_window(self, tenant_id: str, project_id: str):
-        return self.buffer.get((tenant_id, project_id), [])
+        persist_analysis(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            aggregated=aggregated,
+        )

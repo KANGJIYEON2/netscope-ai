@@ -1,9 +1,8 @@
-from sqlalchemy import Column, String, Float, DateTime, Enum as SAEnum
+from sqlalchemy import Column, String, Float, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, UTC
 
 from db.base import Base
-from schemas.enums import SeverityLevel, AnalysisStrategy
 
 
 class AnalysisResult(Base):
@@ -11,24 +10,13 @@ class AnalysisResult(Base):
 
     id = Column(String, primary_key=True)
 
-    summary = Column(String, nullable=False)
-
-    severity = Column(
-        SAEnum(SeverityLevel, name="severity_level"),
-        nullable=False,
-    )
+    tenant_id = Column(String, nullable=False)
+    project_id = Column(String, nullable=False)
 
     confidence = Column(Float, nullable=False)
 
-    suspected_causes = Column(JSONB, nullable=False)
-    recommended_actions = Column(JSONB, nullable=False)
-
-    matched_rules = Column(JSONB, nullable=False, default=list)
-
-    strategy_used = Column(
-        SAEnum(AnalysisStrategy, name="analysis_strategy"),
-        nullable=False,
-    )
+    # 🔥 핵심 시그널만 저장
+    signals = Column(JSONB, nullable=False)
 
     received_at = Column(
         DateTime(timezone=True),

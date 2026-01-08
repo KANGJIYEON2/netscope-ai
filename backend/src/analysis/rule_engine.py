@@ -2,9 +2,27 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, UTC
 from typing import Callable, List, Set, Tuple, Dict
 
-from log.models import Log
+from schemas.enums import LogLevel
+
+
+# ======================================================
+# Ephemeral Log (Rule-only, NOT ORM)
+# ======================================================
+
+@dataclass(frozen=True)
+class RuleLog:
+    """
+    In-memory log representation for rule evaluation.
+    - NOT persisted
+    - NOT SQLAlchemy
+    """
+    source: str
+    message: str
+    level: LogLevel
+    timestamp: datetime
 
 
 # ======================================================
@@ -29,9 +47,9 @@ class Rule:
     """
     Rule-based Expert System Component
 
-    이론적 근거:
-    - Rule-based Expert System (Buchanan & Shortliffe)
-    - Deterministic baseline for explainable reasoning
+    - Deterministic
+    - Explainable
+    - Baseline reasoning (no probabilistic guess)
     """
 
     def __init__(
@@ -39,8 +57,8 @@ class Rule:
         rule_id: str,
         title: str,
         score: float,
-        predicate: Callable[[List[Log]], bool],
-        evidence_builder: Callable[[List[Log]], str],
+        predicate: Callable[[List[RuleLog]], bool],
+        evidence_builder: Callable[[List[RuleLog]], str],
         causes: List[str],
         actions: List[str],
     ):
@@ -52,7 +70,7 @@ class Rule:
         self.causes = tuple(causes)
         self.actions = tuple(actions)
 
-    def evaluate(self, logs: List[Log]) -> RuleMatch | None:
+    def evaluate(self, logs: List[RuleLog]) -> RuleMatch | None:
         if not self.predicate(logs):
             return None
 
@@ -74,13 +92,46 @@ class RuleEngine:
     def __init__(self, rules: List[Rule]):
         self.rules = rules
 
-    def run(self, logs: List[Log]) -> List[RuleMatch]:
+    def run(self, logs: List[RuleLog]) -> List[RuleMatch]:
         matches: List[RuleMatch] = []
         for rule in self.rules:
             result = rule.evaluate(logs)
             if result:
                 matches.append(result)
         return matches
+
+    # --------------------------------------------------
+    # Ingestion Adapter (raw → RuleLog)
+    # --------------------------------------------------
+    def run_raw(self, raw_logs: List[str]) -> List[RuleMatch]:
+        """
+        Adapter for ingestion pipeline.
+        - Converts raw log lines into RuleLog
+        - No DB persistence
+        """
+        now = datetime.now(UTC)
+
+        logs = [
+            RuleLog(
+                source="ingest",
+                message=line,
+                level=self._infer_level(line),
+                timestamp=now,
+            )
+            for line in raw_logs
+        ]
+
+        return self.run(logs)
+
+    def _infer_level(self, line: str) -> LogLevel:
+        upper = line.upper()
+        if "ERROR" in upper:
+            return LogLevel.ERROR
+        if "WARN" in upper:
+            return LogLevel.WARN
+        if "DEBUG" in upper:
+            return LogLevel.DEBUG
+        return LogLevel.INFO
 
 
 # ======================================================
@@ -97,15 +148,15 @@ _5XX_RE = re.compile(r"\b(5\d\d|502|503|504)\b", re.IGNORECASE)
 # Helper Functions
 # ======================================================
 
-def _any_level(level: str, logs: List[Log]) -> bool:
+def _any_level(level: LogLevel, logs: List[RuleLog]) -> bool:
     return any(log.level == level for log in logs)
 
 
-def _any_message_regex(regex: re.Pattern, logs: List[Log]) -> bool:
+def _any_message_regex(regex: re.Pattern, logs: List[RuleLog]) -> bool:
     return any(regex.search(log.message or "") for log in logs)
 
 
-def _count_by_source(logs: List[Log]) -> Dict[str, int]:
+def _count_by_source(logs: List[RuleLog]) -> Dict[str, int]:
     counts: Dict[str, int] = {}
     for log in logs:
         counts[log.source] = counts.get(log.source, 0) + 1
@@ -202,7 +253,7 @@ def default_rules() -> List[Rule]:
             rule_id="R005",
             title="ERROR 레벨 로그 존재",
             score=0.20,
-            predicate=lambda logs: _any_level("ERROR", logs),
+            predicate=lambda logs: _any_level(LogLevel.ERROR, logs),
             evidence_builder=lambda logs: (
                 "level=ERROR 로 기록된 로그가 하나 이상 존재함"
             ),
@@ -240,17 +291,11 @@ def default_rules() -> List[Rule]:
 # ======================================================
 
 def build_rule_summary(matches: List[RuleMatch]) -> str:
-    """
-    Rule-only Summary
-    - 관측된 사실만 요약 (추론 금지)
-    """
     if not matches:
         return "룰 기반 분석 결과, 특이 장애 징후는 감지되지 않았습니다."
 
     titles = ", ".join(m.title for m in matches)
-    return (
-        f"룰 기반 분석 결과, 다음과 같은 이상 징후가 감지되었습니다: {titles}."
-    )
+    return f"룰 기반 분석 결과, 다음과 같은 이상 징후가 감지되었습니다: {titles}."
 
 
 def evidence_count_bonus(matches: List[RuleMatch]) -> float:
@@ -287,15 +332,6 @@ def confidence_level(score: float) -> str:
 
 
 def aggregate(matches: List[RuleMatch]) -> Dict:
-    """
-    Explainable Rule Aggregation
-
-    이론:
-    - Evidence Accumulation
-    - Causal Correlation Bonus
-    - Monotonic Reasoning
-    """
-
     base_score = sum(m.score for m in matches)
     bonus = evidence_count_bonus(matches) + interaction_bonus(matches)
     confidence = min(base_score + bonus, 1.0)

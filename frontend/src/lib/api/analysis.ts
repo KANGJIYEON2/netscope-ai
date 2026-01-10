@@ -12,3 +12,14 @@ export const analyzeLogs = async (
   });
   return res.data;
 };
+
+export const analyzeTestLogs = async (
+  messages: string[],
+  strategy: Strategy
+) => {
+  const res = await apiClient.post("/analysis/test", {
+    messages,
+    strategy,
+  });
+  return res.data;
+};

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import axios from "axios";
 
-import { API_BASE_URL } from "@/lib/config";
 import { AnalysisResult as AnalysisResultType } from "@/types/analysis";
 import AnalysisResult from "@/app/analysis/AnalysisResult";
+import { analyzeTestLogs } from "@/lib/api/analysis";
 
 type Strategy = "rule" | "gpt";
 
@@ -17,7 +16,7 @@ export default function TestLogPage() {
   const [error, setError] = useState<string | null>(null);
 
   const analyze = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     setLoading(true);
     setError(null);
@@ -29,12 +28,8 @@ export default function TestLogPage() {
         .map((l) => l.trim())
         .filter(Boolean);
 
-      const res = await axios.post(`${API_BASE_URL}/analysis/test`, {
-        messages,
-        strategy,
-      });
-
-      setResult(res.data);
+      const data = await analyzeTestLogs(messages, strategy);
+      setResult(data);
     } catch (e) {
       console.error(e);
       setError("분석 중 오류가 발생했습니다.");
@@ -84,30 +79,23 @@ export default function TestLogPage() {
             </span>
 
             <div className="flex rounded-lg border border-zinc-700 overflow-hidden">
-              <button
-                onClick={() => setStrategy("rule")}
-                className={`px-4 py-2 text-sm font-semibold transition
-                  ${
-                    strategy === "rule"
-                      ? "bg-emerald-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                  }
-                `}
-              >
-                Rule
-              </button>
-              <button
-                onClick={() => setStrategy("gpt")}
-                className={`px-4 py-2 text-sm font-semibold transition
-                  ${
-                    strategy === "gpt"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                  }
-                `}
-              >
-                GPT
-              </button>
+              {(["rule", "gpt"] as Strategy[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStrategy(s)}
+                  className={`px-4 py-2 text-sm font-semibold transition
+                    ${
+                      strategy === s
+                        ? s === "rule"
+                          ? "bg-emerald-600 text-white"
+                          : "bg-indigo-600 text-white"
+                        : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                    }
+                  `}
+                >
+                  {s.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
 

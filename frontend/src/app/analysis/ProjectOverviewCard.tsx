@@ -22,7 +22,7 @@ export default function ProjectOverviewCard({ data, onViewReport }: Props) {
 
         <div>
           <p className="text-gray-500">Error Rate</p>
-          <p className="font-semibold">{data.error_rate * 100}%</p>
+          <p className="font-semibold">{(data.error_rate * 100).toFixed(1)}%</p>
         </div>
 
         <div>
@@ -37,7 +37,7 @@ export default function ProjectOverviewCard({ data, onViewReport }: Props) {
 
       <div>
         <p className="text-gray-500 text-sm mb-2">Top Signals</p>
-        <ul className="flex gap-2">
+        <ul className="flex gap-2 flex-wrap">
           {data.top_signals.map((s) => (
             <li
               key={s.rule_id}

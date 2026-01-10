@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import { Log } from "@/types/log";
+import { LogItem } from "@/types/log";
 
 /* =========================
  * Project List
@@ -12,7 +12,7 @@ export interface ProjectItem {
 }
 
 export const fetchProjects = async (): Promise<ProjectItem[]> => {
-  const res = await apiClient.get("/projects"); // ✅ 여기 중요
+  const res = await apiClient.get("/projects");
   return res.data;
 };
 
@@ -41,7 +41,7 @@ export interface ProjectLogsResponse {
   tenant: string;
   project: string;
   count: number;
-  logs: Log[];
+  logs: LogItem[];
 }
 
 export const fetchProjectLogs = async (
@@ -54,3 +54,21 @@ export const fetchProjectLogs = async (
 
   return res.data;
 };
+
+/* =========================
+ * 🔥 Project Overview (Dashboard Card)
+ * ========================= */
+
+export interface ProjectOverview {
+  project: string;
+  current_severity: "LOW" | "MEDIUM" | "HIGH";
+  log_count: number;
+  error_rate: number;
+  last_analysis: {
+    at: string;
+  } | null;
+  top_signals: {
+    rule_id: string;
+    count: number;
+  }[];
+}

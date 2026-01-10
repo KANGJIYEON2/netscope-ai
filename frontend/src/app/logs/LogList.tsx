@@ -1,9 +1,9 @@
 "use client";
 
-import { Log } from "@/types/log";
+import { LogItem } from "@/types/log";
 
 interface LogListProps {
-  logs: Log[];
+  logs: LogItem[];
   onRemove?: (id: string) => void;
 }
 
@@ -45,7 +45,7 @@ export default function LogList({ logs }: LogListProps) {
               <p className="text-zinc-200 whitespace-pre-wrap">{log.message}</p>
 
               <div className="mt-1 text-[10px] text-zinc-500">
-                received at {new Date(log.received_at).toLocaleString()}
+                received at {new Date(log.timestamp).toLocaleString()}
               </div>
             </li>
           ))}

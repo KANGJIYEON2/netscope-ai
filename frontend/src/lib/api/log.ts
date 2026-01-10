@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { Log } from "@/types/log";
+import { LogItem } from "@/types/log";
 
 /* =========================
  * Log Create (Manual / Incoming 공용)
@@ -16,8 +16,11 @@ export type CreateLogPayload = {
 export const createLog = async (
   projectId: string,
   payload: CreateLogPayload
-): Promise<Log> => {
-  const res = await apiClient.post<Log>(`/projects/${projectId}/logs`, payload);
+): Promise<LogItem> => {
+  const res = await apiClient.post<LogItem>(
+    `/projects/${projectId}/logs`,
+    payload
+  );
 
   return res.data;
 };
@@ -32,8 +35,8 @@ export const fetchLogs = async (
   params?: {
     limit?: number;
   }
-): Promise<Log[]> => {
-  const res = await apiClient.get<Log[]>(`/projects/${projectId}/logs`, {
+): Promise<LogItem[]> => {
+  const res = await apiClient.get<LogItem[]>(`/projects/${projectId}/logs`, {
     params,
   });
 

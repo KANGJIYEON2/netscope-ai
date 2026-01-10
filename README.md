@@ -1,64 +1,171 @@
-🧠 Architecture Overview
+# 📊 NETSCOPE AI(Log Analysis Service) — 1차 설계 정리 (MVP)
 
-This system is designed to analyze logs at scale without storing raw logs.
-Instead of persisting massive log data, it focuses on rule-based signal extraction and periodic analysis (7-day window).
+운영 로그를 **프로젝트 단위로 수집·분석**하고,  
+Rule 기반 + GPT 보강 분석을 통해 **운영 리스크를 빠르게 파악**하는 로그 분석 서비스입니다.
 
-The core philosophy is:
+---
 
-Logs are transient.
-Signals are persistent.
-Analysis is the product.
+## 1️⃣ 인증(Auth) & 진입 흐름
 
-```text
-Application / OS
-  └─ Log Stream (stdout / stderr / system)
+- 첫 진입 화면: **로그인 / 회원가입**
+- 로그인 완료 시:
+  - 사용자 **Tenant ID** 기준으로 서비스 진입
+  - 모든 데이터는 **Tenant 단위로 완전 분리**
 
-        ↓
+### 상단 Header 구성
 
-Log Agent Script (lightweight, local)
-  - Near real-time ingestion
-  - No database writes
-  - No buffering of raw logs
+- 👤 사용자 아이콘
+- 🏷 Tenant ID 표시
 
-        ↓  HTTP POST
-           (with context headers)
+---
 
-Ingestion API
-  - X-Tenant-ID
-  - X-Project-ID
-  - X-Agent-ID (optional)
-  - Raw log lines (streamed)
+## 2️⃣ 기본 UI 구조
 
-        ↓  (in-memory processing)
+### 📌 좌측 Navigation
 
-Rule Engine
-  - Deterministic rules
-  - Pattern detection
-  - Anomaly heuristics
-  - Evidence generation (ephemeral)
+좌측 네비게이션은 **두 개 메뉴만 사용**
 
-        ↓  signal extraction
+- **Test Log**
+- **Project Log**
 
-Signal Aggregator
-  - Keyword-based signals
-  - Count & severity aggregation
-  - Time-windowed (daily / 7-day)
+> MVP 단계에서는 불필요한 메뉴 확장을 지양하고  
+> “테스트용 / 실제 운영용” 흐름만 명확히 분리
 
-        ↓  persist (small & meaningful)
+---
 
-Analysis Storage
-  - tenant_id
-  - project_id
-  - analysis period (e.g. 7 days)
-  - aggregated signals only
-  - NO raw logs stored
+## 3️⃣ Project 관리
 
-        ↓
+### 🔹 프로젝트 생성
 
-Analysis & Reporting
-  - 7-day trend analysis
-  - Severity scoring
-  - Optional GPT enrichment
-  - Human-readable reports
+- **Project Log 화면**
+- 우측 하단 **New 버튼**
+- 클릭 시 새 프로젝트 생성 가능
 
-```
+📁 프로젝트는:
+
+- 실제 운영 로그 저장 단위
+- 분석 결과 및 주간 리포트의 기준 단위
+
+---
+
+## 4️⃣ Test Log 화면 (비저장 분석)
+
+테스트용 로그를 빠르게 분석하기 위한 화면
+
+### 특징
+
+- 사용자가 로그 직접 입력
+- **즉시 분석 결과 확인 가능**
+- ❌ DB 저장 없음
+- ❌ 프로젝트와 무관
+
+📌 용도
+
+- Rule 동작 확인
+- 분석 결과 품질 테스트
+- GPT 결과 검증
+
+---
+
+## 5️⃣ Project Log 화면 (핵심 기능)
+
+### 🔹 로그 수집 방식
+
+두 가지 방식 지원
+
+1. **사용자 수동 입력**
+
+   - New Log 버튼
+   - 날짜 선택 가능
+
+2. (향후 확장)
+   - Agent / API 기반 자동 수집
+
+---
+
+### 🔹 로그 저장 정책
+
+- 로그는 **프로젝트별 DB에 저장**
+- 모든 원본 로그를 무조건 저장하지 않음
+
+#### 저장 대상 로그
+
+- ✅ Rule에 매칭된 로그
+- ✅ GPT 분석 대상 로그
+
+#### 저장하지 않는 로그
+
+- ❌ 단순 원본 로그 전체
+- ❌ 의미 없는 반복 로그
+
+👉 **분석 가치가 있는 로그만 저장**
+
+---
+
+### 🔹 분석 결과 (Report)
+
+분석 실행 시 생성되는 정보
+
+- Summary (요약)
+- Severity (LOW / MEDIUM / HIGH)
+- Confidence (신뢰도)
+- 원인 (Cause)
+- 권장 조치 (Action)
+- 분석 근거 (Evidence / Matched Rules)
+
+📄 각 분석 결과는 **리포트 단위로 저장 및 조회 가능**
+
+---
+
+## 6️⃣ 주간 운영 리포트 (Weekly Report)
+
+- 최근 **7일간 분석 결과** 집계
+- Rule + GPT 기반 자동 요약
+
+### 포함 정보
+
+- 분석 리포트 수
+- 주간 장애 패턴 요약
+- 다음 주 운영 리스크 예측
+  - 낮음 / 보통 / 높음
+  - 판단 근거 포함
+
+📌 MVP 정책
+
+- 분석 실행 시 조건부 자동 생성
+- 동일 기간 리포트 **중복 생성 방지**
+
+---
+
+## 7️⃣ New Log 생성
+
+- Project Log 화면의 **New Log 버튼**
+- 수동 로그 입력 가능
+- 날짜 선택 가능 (과거 로그 테스트용)
+
+---
+
+## 🎯 MVP 설계 방향 요약
+
+- ✅ 단순하지만 운영 흐름이 명확한 구조
+- ✅ Test / Production 로그 완전 분리
+- ✅ Tenant 기반 멀티테넌시
+- ✅ 불필요한 로그 저장 최소화
+- ✅ 분석 중심 설계 (Log → Insight)
+
+---
+
+## 🚀 향후 확장 예정
+
+- 로그 자동 수집 Agent
+- 알림 (Slack / Webhook)
+- 리스크 트렌드 시각화
+- 프로젝트별 권한 관리
+- 분석 Rule UI 관리
+
+---
+
+### 한 줄 요약
+
+> **“로그를 쌓는 서비스가 아니라,  
+> 운영 판단에 필요한 ‘의미 있는 로그’만 남기는 분석 서비스”**

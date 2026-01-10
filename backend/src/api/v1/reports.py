@@ -1,81 +1,285 @@
-from fastapi import APIRouter, Header
-from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import datetime, date, timedelta, UTC
 
-from db.session import SessionLocal
+from api.v1.dep import get_current_context
+from db.session import get_db
 from model.analysis_result import AnalysisResult
+from model.weekly_report import WeeklyReport
+from schemas.analysis import AnalysisResultDTO
 
-from analysis.rule_engine import confidence_level
-from analysis.rule_summary import build_rule_summary
+import uuid
+
+
 from analysis.gpt_weekly import (
     gpt_explain_weekly,
-    gpt_risk_outlook,
+    gpt_predict_next_week_risk,
 )
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(
+    prefix="/projects/{project_id}/reports",
+    tags=["reports"],
+)
 
+# ======================================================
+#  분석 리포트 목록 (개별 결과 리스트)
+# ======================================================
+@router.get("", response_model=list[AnalysisResultDTO])
+def list_reports(
+    project_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+    start_date: date | None = Query(None, description="YYYY-MM-DD"),
+    end_date: date | None = Query(None, description="YYYY-MM-DD"),
+    limit: int = Query(20, ge=1, le=100),
+):
+    tenant_id = ctx["tenant_id"]
 
+    q = db.query(AnalysisResult).filter(
+        AnalysisResult.tenant_id == tenant_id,
+        AnalysisResult.project_id == project_id,
+    )
+
+    if start_date:
+        q = q.filter(
+            AnalysisResult.received_at
+            >= datetime.combine(start_date, datetime.min.time())
+        )
+
+    if end_date:
+        q = q.filter(
+            AnalysisResult.received_at
+            <= datetime.combine(end_date, datetime.max.time())
+        )
+
+    results = (
+        q.order_by(AnalysisResult.received_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        AnalysisResultDTO(
+            summary=r.summary,
+            severity=r.severity,
+            confidence=r.confidence,
+            suspected_causes=r.suspected_causes,
+            recommended_actions=r.recommended_actions,
+            matched_rules=r.matched_rules,
+            strategy_used=r.strategy_used,
+            received_at=r.received_at,
+        )
+        for r in results
+    ]
+
+# ======================================================
+# 🔥  주간 운영 리포트 (최근 7일)
+# ======================================================
 @router.get("/weekly")
 def weekly_report(
-    x_tenant_id: str = Header(..., alias="X-Tenant-ID"),
-    x_project_id: str = Header(..., alias="X-Project-ID"),
+    project_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
 ):
-    db = SessionLocal()
-    try:
-        since = datetime.utcnow() - timedelta(days=7)
+    tenant_id = ctx["tenant_id"]
 
-        results = (
-            db.query(AnalysisResult)
-            .filter(
-                AnalysisResult.tenant_id == x_tenant_id,
-                AnalysisResult.project_id == x_project_id,
-                AnalysisResult.received_at >= since,
-            )
-            .order_by(AnalysisResult.received_at.desc())
-            .all()
+    today = datetime.now(UTC).date()
+    period_start = today - timedelta(days=7)
+    period_end = today
+
+    # ======================================================
+    # 1️⃣ 이미 생성된 주간 리포트 있는지 확인
+    # ======================================================
+    existing = (
+        db.query(WeeklyReport)
+        .filter(
+            WeeklyReport.tenant_id == tenant_id,
+            WeeklyReport.project_id == project_id,
+            WeeklyReport.period_start == period_start,
+            WeeklyReport.period_end == period_end,
         )
+        .first()
+    )
 
-        # 🔹 signals 집계 (룰 엔진 증거)
-        all_signals = []
-        for r in results:
-            all_signals.extend(r.signals or [])
-
-        # 🔹 룰 기반 사실 요약 (deterministic / 저장 가능 레벨)
-        rule_summary = build_rule_summary(all_signals)
-
-        # 🔹 GPT 기반 주간 보고서 (응답 전용)
-        report = gpt_explain_weekly(
-            rule_summary=rule_summary,
-            signals=all_signals,
-        )
-
-        # 🔹 GPT 기반 다음 주 리스크 전망 (응답 전용)
-        risk_outlook = gpt_risk_outlook(
-            rule_summary=rule_summary,
-            signals=all_signals,
-        )
-
+    if existing:
         return {
-            "tenant": x_tenant_id,
-            "project": x_project_id,
             "period": "last_7_days",
-            "count": len(results),
-
-            # 👇 핵심 결과
-            "rule_summary": rule_summary,
-            "report": report,
-            "risk_outlook": risk_outlook,
-
-            # 👇 raw evidence
-            "reports": [
-                {
-                    "confidence": r.confidence,
-                    "severity": confidence_level(r.confidence),
-                    "signals": r.signals,
-                    "created_at": r.received_at,
-                }
-                for r in results
-            ],
+            "from": period_start.isoformat(),
+            "to": period_end.isoformat(),
+            "report_count": existing.report_count,
+            "summary": existing.summary,
+            "risk_outlook": {
+                "level": existing.risk_level,
+                "reason": existing.risk_reason,
+            },
         }
 
-    finally:
-        db.close()
+    # ======================================================
+    # 2️⃣ 최근 7일 분석 결과 조회
+    # ======================================================
+    results = (
+        db.query(AnalysisResult)
+        .filter(
+            AnalysisResult.tenant_id == tenant_id,
+            AnalysisResult.project_id == project_id,
+            AnalysisResult.received_at >= datetime.combine(period_start, datetime.min.time()),
+        )
+        .order_by(AnalysisResult.received_at.desc())
+        .all()
+    )
+
+    if not results:
+        return {
+            "period": "last_7_days",
+            "from": period_start.isoformat(),
+            "to": period_end.isoformat(),
+            "report_count": 0,
+            "summary": "최근 7일간 분석된 로그가 없습니다.",
+            "risk_outlook": {
+                "level": "낮음",
+                "reason": "분석 대상 로그가 없어 장애 패턴이 감지되지 않았습니다.",
+            },
+        }
+
+    # ======================================================
+    # 3️⃣ 요약 + GPT 분석
+    # ======================================================
+    rule_summary = "\n".join(
+        f"- [{r.severity}] {r.summary}" for r in results
+    )
+
+    signals = []
+    for r in results:
+        if r.signals:
+            signals.extend(r.signals)
+
+    weekly_summary = gpt_explain_weekly(
+        rule_summary=rule_summary,
+        signals=signals,
+    )
+
+    risk = gpt_predict_next_week_risk(
+        rule_summary=rule_summary,
+        signals=signals,
+    )
+
+    # ======================================================
+    # 4️⃣ DB 저장 (🔥 핵심)
+    # ======================================================
+    weekly = WeeklyReport(
+        id=str(uuid.uuid4()),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        period_start=period_start,
+        period_end=period_end,
+        report_count=len(results),
+        summary=weekly_summary,
+        risk_level=risk["level"],
+        risk_reason=risk["reason"],
+    )
+
+    db.add(weekly)
+    db.commit()
+
+    return {
+        "period": "last_7_days",
+        "from": period_start.isoformat(),
+        "to": period_end.isoformat(),
+        "report_count": weekly.report_count,
+        "summary": weekly.summary,
+        "risk_outlook": {
+            "level": weekly.risk_level,
+            "reason": weekly.risk_reason,
+        },
+    }
+# ======================================================
+#  분석 리포트 단건 조회
+# ======================================================
+@router.get("/{analysis_id}", response_model=AnalysisResultDTO)
+def get_report(
+    project_id: str,
+    analysis_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+):
+    tenant_id = ctx["tenant_id"]
+
+    result = (
+        db.query(AnalysisResult)
+        .filter(
+            AnalysisResult.id == analysis_id,
+            AnalysisResult.tenant_id == tenant_id,
+            AnalysisResult.project_id == project_id,
+        )
+        .first()
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return AnalysisResultDTO(
+        summary=result.summary,
+        severity=result.severity,
+        confidence=result.confidence,
+        suspected_causes=result.suspected_causes,
+        recommended_actions=result.recommended_actions,
+        matched_rules=result.matched_rules,
+        strategy_used=result.strategy_used,
+        received_at=result.received_at,
+    )
+
+
+# ======================================================
+# Confidence Trend (그래프용)
+# ======================================================
+@router.get("/trend/confidence")
+def confidence_trend(
+    project_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+):
+    tenant_id = ctx["tenant_id"]
+
+    q = db.query(
+        func.date(AnalysisResult.received_at).label("day"),
+        func.avg(AnalysisResult.confidence).label("avg_confidence"),
+        func.count(AnalysisResult.id).label("count"),
+    ).filter(
+        AnalysisResult.tenant_id == tenant_id,
+        AnalysisResult.project_id == project_id,
+    )
+
+    if start_date:
+        q = q.filter(
+            AnalysisResult.received_at
+            >= datetime.combine(start_date, datetime.min.time())
+        )
+
+    if end_date:
+        q = q.filter(
+            AnalysisResult.received_at
+            <= datetime.combine(end_date, datetime.max.time())
+        )
+
+    rows = (
+        q.group_by(func.date(AnalysisResult.received_at))
+        .order_by(func.date(AnalysisResult.received_at))
+        .all()
+    )
+
+    return {
+        "metric": "confidence_trend",
+        "points": [
+            {
+                "date": row.day,
+                "avg_confidence": round(row.avg_confidence, 3),
+                "report_count": row.count,
+            }
+            for row in rows
+        ],
+    }
+
+

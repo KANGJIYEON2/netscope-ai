@@ -1,9 +1,12 @@
-import axios from "axios";
-import { API_BASE_URL } from "../config";
+import { apiClient } from "@/lib/api/client";
 import { Strategy } from "@/types/analysis";
 
-export const analyzeLogs = async (logIds: string[], strategy: Strategy) => {
-  const res = await axios.post(`${API_BASE_URL}/analysis`, {
+export const analyzeLogs = async (
+  projectId: string,
+  logIds: string[],
+  strategy: "rule" | "gpt"
+) => {
+  const res = await apiClient.post(`/projects/${projectId}/analysis`, {
     log_ids: logIds,
     strategy,
   });

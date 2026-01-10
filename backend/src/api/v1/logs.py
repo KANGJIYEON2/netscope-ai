@@ -1,46 +1,116 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from schemas import LogCreateDTO, LogResponseDTO
-from schemas.enums import LogLevel
-from log.service import LogService
-from infrastructure.storage import get_log_storage
+from api.v1.dep import get_current_context
+from db.session import get_db
+from domain.log import LogDomainService
+from model.log import Log
+from schemas.log import LogCreateDTO, LogResponseDTO
 
-router = APIRouter(prefix="/logs", tags=["logs"])
+router = APIRouter(
+    prefix="/projects/{project_id}/logs",
+    tags=["logs"],
+)
 
-storage = get_log_storage()
-service = LogService(storage)
+# ======================================================
+# 1️⃣ 로그 생성 (manual)
+# ======================================================
+@router.post(
+    "",
+    response_model=LogResponseDTO,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_log(
+    project_id: str,
+    dto: LogCreateDTO,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+):
+    service = LogDomainService(db)
 
-
-@router.post("", response_model=LogResponseDTO)
-def create_log(dto: LogCreateDTO):
-    log_id, log = service.create(
+    log = service.create_log(
+        tenant_id=ctx["tenant_id"],
+        project_id=project_id,
         source=dto.source,
         message=dto.message,
-        level=dto.level.value,   # Enum -> str
+        level=dto.level,
+        source_type="manual",
         timestamp=dto.timestamp,
     )
 
     return LogResponseDTO(
-        id=log_id,
+        id=log.id,
         source=log.source,
         message=log.message,
-        level=LogLevel(log.level),  # str -> Enum
+        level=log.level,
         timestamp=log.timestamp,
         received_at=log.received_at,
+        host=log.host,
     )
 
 
+# ======================================================
+# 2️⃣ 프로젝트 로그 목록 조회
+# ======================================================
 @router.get("", response_model=list[LogResponseDTO])
-def list_logs():
-    items = service.list()
+def list_logs(
+    project_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+):
+    logs = (
+        db.query(Log)
+        .filter(
+            Log.tenant_id == ctx["tenant_id"],
+            Log.project_id == project_id,
+        )
+        .order_by(Log.timestamp.desc())
+        .limit(200)
+        .all()
+    )
+
     return [
         LogResponseDTO(
-            id=log_id,
-            source=log.source,
-            message=log.message,
-            level=LogLevel(log.level),
-            timestamp=log.timestamp,
-            received_at=log.received_at,
+            id=l.id,
+            source=l.source,
+            message=l.message,
+            level=l.level,
+            timestamp=l.timestamp,
+            received_at=l.received_at,
+            host=l.host,
         )
-        for log_id, log in items
+        for l in logs
     ]
+
+
+# ======================================================
+# 3️⃣ 로그 삭제 (단건)
+# ======================================================
+@router.delete(
+    "/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_log(
+    project_id: str,
+    log_id: str,
+    ctx: dict = Depends(get_current_context),
+    db: Session = Depends(get_db),
+):
+    log = (
+        db.query(Log)
+        .filter(
+            Log.id == log_id,
+            Log.tenant_id == ctx["tenant_id"],
+            Log.project_id == project_id,
+        )
+        .first()
+    )
+
+    if not log:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Log not found",
+        )
+
+    db.delete(log)
+    db.commit()

@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from typing import Generator
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -12,7 +13,7 @@ if not DATABASE_URL:
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,  # 끊어진 커넥션 자동 감지
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
@@ -20,3 +21,11 @@ SessionLocal = sessionmaker(
     autoflush=False,
     bind=engine,
 )
+
+
+def get_db() -> Generator:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

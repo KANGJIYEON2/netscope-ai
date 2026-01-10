@@ -7,6 +7,8 @@ import requests
 import os
 from datetime import datetime, UTC
 
+# 중요 v2에 붙이기
+
 # =========================
 # CONFIG
 # =========================

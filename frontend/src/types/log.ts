@@ -1,10 +1,9 @@
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
-export interface Log {
+export type LogItem = {
   id: string;
   source: string;
   message: string;
-  level: LogLevel;
+  level: string;
   timestamp: string;
-  received_at: string;
-}
+};

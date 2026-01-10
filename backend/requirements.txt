@@ -4,7 +4,10 @@ uvicorn[standard]>=0.27
 
 # --- Data / Validation ---
 pydantic>=2.6
+pydantic-settings>=2.2
 python-dotenv>=1.0
+email-validator>=2.1
+
 
 # --- HTTP / Networking ---
 httpx>=0.26
@@ -19,6 +22,12 @@ openai>=1.12
 # --- Test ---
 pytest>=8.0
 
-# -- DB ---
+# --- DB ---
 sqlalchemy>=2.0
 psycopg[binary]>=3.1
+
+# --- Auth / Security ---
+python-jose>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.1.2
+argon2-cffi>=23.1

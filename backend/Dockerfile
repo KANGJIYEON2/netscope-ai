@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 작업 디렉토리
-WORKDIR /src
+WORKDIR /src/backend
 
 # requirements 먼저
 COPY requirements.txt ./requirements.txt

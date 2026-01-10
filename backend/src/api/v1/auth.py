@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from db.session import get_db
-from domain.auth import AuthDomainService
-from schemas.auth import (
+from src.db.session import get_db
+from src.domain.auth import AuthDomainService
+from src.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     TokenResponse,

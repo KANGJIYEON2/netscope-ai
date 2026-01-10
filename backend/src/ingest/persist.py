@@ -1,8 +1,8 @@
 from uuid import uuid4
 from datetime import datetime, UTC
 
-from db.session import SessionLocal
-from model.analysis_result import AnalysisResult
+from src.db.session import SessionLocal
+from src.model.analysis_result import AnalysisResult
 
 
 def persist_analysis(*, tenant_id: str, project_id: str, aggregated: dict):

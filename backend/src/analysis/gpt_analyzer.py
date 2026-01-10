@@ -7,7 +7,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from log.models import Log
+from src.log.models import Log
 
 
 class GPTAnalyzer:

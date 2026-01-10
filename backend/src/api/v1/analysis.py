@@ -3,13 +3,13 @@ from sqlalchemy.orm import Session
 from datetime import datetime, UTC
 import uuid
 
-from api.v1.dep import get_current_context
-from db.session import get_db
-from model.log import Log
-from model.analysis_result import AnalysisResult
-from schemas.analysis import AnalysisRequestDTO, AnalysisResultDTO
-from analysis.engine import AnalysisEngine
-from analysis.weekly_service import (
+from src.api.v1.dep import get_current_context
+from src.db.session import get_db
+from src.model.log import Log
+from src.model.analysis_result import AnalysisResult
+from src.schemas.analysis import AnalysisRequestDTO, AnalysisResultDTO
+from src.analysis.engine import AnalysisEngine
+from src.analysis.weekly_service import (
     should_generate_weekly_report,
     generate_and_save_weekly_report,
 )

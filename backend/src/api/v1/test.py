@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from schemas.analysis_test import TestAnalysisRequestDTO
-from schemas.analysis import AnalysisResultDTO
-from analysis.engine import AnalysisEngine
+from src.schemas.analysis_test import TestAnalysisRequestDTO
+from src.schemas.analysis import AnalysisResultDTO
+from src.analysis.engine import AnalysisEngine
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 

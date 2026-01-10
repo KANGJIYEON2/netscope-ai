@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime, UTC
 from typing import Optional
-from schemas.enums import LogLevel
+from src.schemas.enums import LogLevel
 
 
 class LogCreateDTO(BaseModel):

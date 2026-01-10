@@ -2,8 +2,8 @@ from sqlalchemy import Column, String, Float, DateTime, Text, Enum
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, UTC
 
-from db.base import Base
-from schemas.enums import SeverityLevel
+from src.db.base import Base
+from src.schemas.enums import SeverityLevel
 
 
 class AnalysisResult(Base):

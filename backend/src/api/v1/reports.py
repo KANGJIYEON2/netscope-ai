@@ -3,16 +3,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, date, timedelta, UTC
 
-from api.v1.dep import get_current_context
-from db.session import get_db
-from model.analysis_result import AnalysisResult
-from model.weekly_report import WeeklyReport
-from schemas.analysis import AnalysisResultDTO
+from src.api.v1.dep import get_current_context
+from src.db.session import get_db
+from src.model.analysis_result import AnalysisResult
+from src.model.weekly_report import WeeklyReport
+from src.schemas.analysis import AnalysisResultDTO
 
 import uuid
 
 
-from analysis.gpt_weekly import (
+from src.analysis.gpt_weekly import (
     gpt_explain_weekly,
     gpt_predict_next_week_risk,
 )

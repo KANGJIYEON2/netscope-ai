@@ -1,8 +1,8 @@
 from sqlalchemy import Column, String, DateTime, Enum as SAEnum
 from datetime import datetime, UTC
 
-from db.base import Base
-from schemas.enums import LogLevel
+from src.db.base import Base
+from src.schemas.enums import LogLevel
 
 
 class Log(Base):

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Date, DateTime, Integer, Text
 from datetime import datetime, UTC
 
-from db.base import Base
+from src.db.base import Base
 
 
 class WeeklyReport(Base):

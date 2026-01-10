@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, UTC
 from typing import Callable, List, Set, Tuple, Dict
 
-from schemas.enums import LogLevel
+from src.schemas.enums import LogLevel
 
 
 # ======================================================

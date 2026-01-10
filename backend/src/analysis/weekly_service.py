@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, UTC
 from sqlalchemy.orm import Session
 import uuid
 
-from model.analysis_result import AnalysisResult
-from model.weekly_report import WeeklyReport
-from analysis.gpt_weekly import (
+from src.model.analysis_result import AnalysisResult
+from src.model.weekly_report import WeeklyReport
+from src.analysis.gpt_weekly import (
     gpt_explain_weekly,
     gpt_predict_next_week_risk,
 )

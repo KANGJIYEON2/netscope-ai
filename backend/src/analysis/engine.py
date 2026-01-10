@@ -1,15 +1,15 @@
 from typing import List
 from datetime import datetime, UTC
 
-from analysis.rule_engine import (
+from src.analysis.rule_engine import (
     RuleEngine,
     default_rules,
     aggregate,
     RuleLog,
 )
-from analysis.gpt_analyzer import GPTAnalyzer
-from schemas.enums import SeverityLevel, AnalysisStrategy, LogLevel
-from log.models import Log
+from src.analysis.gpt_analyzer import GPTAnalyzer
+from src.schemas.enums import SeverityLevel, AnalysisStrategy, LogLevel
+from src.log.models import Log
 
 
 class AnalysisEngine:

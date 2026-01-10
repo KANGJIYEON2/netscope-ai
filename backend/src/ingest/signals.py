@@ -1,6 +1,6 @@
 from collections import Counter
 from typing import List
-from analysis.rule_engine import RuleMatch
+from src.analysis.rule_engine import RuleMatch
 
 
 def extract_signals(matches: List[RuleMatch]) -> list[dict]:

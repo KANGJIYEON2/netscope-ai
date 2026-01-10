@@ -1,4 +1,4 @@
-from log.models import Log
+from src.log.models import Log
 
 TEST_CASES = [
 

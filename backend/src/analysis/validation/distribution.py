@@ -1,8 +1,8 @@
 
 from collections import Counter
 
-from analysis.rule_engine import RuleEngine, default_rules, aggregate
-from analysis.validation.test_cases import TEST_CASES
+from src.analysis.rule_engine import RuleEngine, default_rules, aggregate
+from src.analysis.validation.test_cases import TEST_CASES
 
 
 def run_distribution_check(verbose: bool = False):

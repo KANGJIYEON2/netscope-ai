@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from api.v1.dep import get_current_context
-from db.session import get_db
-from domain.project import ProjectDomainService
-from repositories.project_repository import ProjectRepository
-from schemas.project import (
+from src.api.v1.dep import get_current_context
+from src.db.session import get_db
+from src.domain.project import ProjectDomainService
+from src.repositories.project_repository import ProjectRepository
+from src.schemas.project import (
     ProjectCreateRequest,
     ProjectResponse,
 )

@@ -1,5 +1,5 @@
-from ingest.signals import extract_signals
-from ingest.persist import persist_analysis
+from src.ingest.signals import extract_signals
+from src.ingest.persist import persist_analysis
 
 
 class SignalAggregator:

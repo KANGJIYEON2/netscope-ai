@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Float, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, UTC
 
-from db.base import Base
+from src.db.base import Base
 
 class Project(Base):
     __tablename__ = "projects"

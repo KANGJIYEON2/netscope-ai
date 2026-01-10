@@ -1,6 +1,6 @@
 from collections import Counter
-from analysis.rule_engine import RuleMatch
-from analysis.signal import Signal
+from src.analysis.rule_engine import RuleMatch
+from src.analysis.signal import Signal
 
 
 def extract_signals(matches: list[RuleMatch]) -> list[Signal]:

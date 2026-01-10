@@ -1,5 +1,5 @@
-from analysis.rule_engine import RuleEngine, default_rules
-from ingest.aggregator import SignalAggregator
+from src.analysis.rule_engine import RuleEngine, default_rules
+from src.ingest.aggregator import SignalAggregator
 
 # 싱글톤 구성 (hot path)
 rule_engine = RuleEngine(default_rules())

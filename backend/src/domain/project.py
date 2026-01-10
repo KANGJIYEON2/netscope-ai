@@ -1,6 +1,6 @@
 import uuid
-from repositories.project_repository import ProjectRepository
-from model.Project import Project
+from src.repositories.project_repository import ProjectRepository
+from src.model.Project import Project
 
 
 class ProjectDomainService:

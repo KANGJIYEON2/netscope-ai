@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Header, Depends
 from sqlalchemy.orm import Session
 
-from schemas.ingest import IngestPayload
-from ingest.service import ingest_logs
-from db.session import get_db
+from src.schemas.ingest import IngestPayload
+from src.ingest.service import ingest_logs
+from src.db.session import get_db
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, DateTime
 from datetime import datetime, UTC
-from db.base import Base
+from src.db.base import Base
 
 
 class Tenant(Base):

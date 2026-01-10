@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from model.analysis_result import AnalysisResult
-from schemas.analysis import AnalysisResultDTO
+from src.model.analysis_result import AnalysisResult
+from src.schemas.analysis import AnalysisResultDTO
 
 
 def save_analysis_result(

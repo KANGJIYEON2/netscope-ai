@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 
-from core.config import settings
+from src.core.config import settings
 
 # auth/login 엔드포인트 경로
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")

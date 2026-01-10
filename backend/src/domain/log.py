@@ -2,8 +2,8 @@ import uuid
 from sqlalchemy.orm import Session
 from datetime import datetime, UTC
 
-from model.log import Log
-from schemas.enums import LogLevel
+from src.model.log import Log
+from src.schemas.enums import LogLevel
 
 
 class LogDomainService:

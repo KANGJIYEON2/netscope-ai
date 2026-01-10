@@ -2,7 +2,7 @@ from datetime import datetime, UTC
 from typing import Optional
 
 from .models import Log
-from infrastructure.storage import InMemoryLogStorage
+from src.infrastructure.storage import InMemoryLogStorage
 
 
 class LogService:

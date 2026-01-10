@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from api.v1.dep import get_current_context
-from db.session import get_db
-from domain.log import LogDomainService
-from model.log import Log
-from schemas.log import LogCreateDTO, LogResponseDTO
+from src.api.v1.dep import get_current_context
+from src.db.session import get_db
+from src.domain.log import LogDomainService
+from src.model.log import Log
+from src.schemas.log import LogCreateDTO, LogResponseDTO
 
 router = APIRouter(
     prefix="/projects/{project_id}/logs",

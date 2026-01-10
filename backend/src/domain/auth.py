@@ -1,10 +1,10 @@
 import uuid
 from sqlalchemy.orm import Session
 
-from model.User import User
-from model.Tenant import Tenant
-from core.security import hash_password, verify_password
-from core.jwt import create_access_token
+from src.model.User import User
+from src.model.Tenant import Tenant
+from src.core.security import hash_password, verify_password
+from src.core.jwt import create_access_token
 
 
 class AuthDomainService:

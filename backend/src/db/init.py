@@ -1,13 +1,13 @@
-from db.base import Base
-from db.session import engine
+from src.db.base import Base
+from src.db.session import engine
 
 # 모델 import  (이거 안 하면 테이블 안 생김)
-from model.log import Log
-from model.analysis_result import AnalysisResult
-from model.Project import Project
-from model.Tenant import Tenant
-from model.User import User
-from model.weekly_report import WeeklyReport
+from src.model.log import Log
+from src.model.analysis_result import AnalysisResult
+from src.model.Project import Project
+from src.model.Tenant import Tenant
+from src.model.User import User
+from src.model.weekly_report import WeeklyReport
 
 def init_db():
     Base.metadata.create_all(bind=engine)

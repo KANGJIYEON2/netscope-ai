@@ -2,13 +2,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI
-from api.v1.logs import router as logs_router
-from api.v1.analysis import router as analysis_router
-from api.v1.ingest import router as ingest_router
-from api.v1.reports import router as report_router
-from api.v1.projects import router as projects_router
-from api.v1.auth import router as auth_router
-from api.v1.test import router as test_router
+from src.api.v1.logs import router as logs_router
+from src.api.v1.analysis import router as analysis_router
+from src.api.v1.ingest import router as ingest_router
+from src.api.v1.reports import router as report_router
+from src.api.v1.projects import router as projects_router
+from src.api.v1.auth import router as auth_router
+from src.api.v1.test import router as test_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="NETSCOPE AI")

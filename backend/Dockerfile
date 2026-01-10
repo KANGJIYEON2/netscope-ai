@@ -25,3 +25,6 @@ COPY . .
 
 # ✅ 핵심 수정 포인트
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
+# ✅ main 경로 찾기
+RUN pwd && ls -al && find . -name "main.py"

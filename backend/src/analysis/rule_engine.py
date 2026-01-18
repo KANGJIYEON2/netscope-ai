@@ -53,14 +53,14 @@ class Rule:
     """
 
     def __init__(
-        self,
-        rule_id: str,
-        title: str,
-        score: float,
-        predicate: Callable[[List[RuleLog]], bool],
-        evidence_builder: Callable[[List[RuleLog]], str],
-        causes: List[str],
-        actions: List[str],
+            self,
+            rule_id: str,
+            title: str,
+            score: float,
+            predicate: Callable[[List[RuleLog]], bool],
+            evidence_builder: Callable[[List[RuleLog]], str],
+            causes: List[str],
+            actions: List[str],
     ):
         self.rule_id = rule_id
         self.title = title
@@ -142,6 +142,17 @@ _TIMEOUT_RE = re.compile(r"\b(timeout|timed out|ETIMEDOUT)\b", re.IGNORECASE)
 _CONN_RE = re.compile(r"\b(connection refused|ECONNREFUSED|reset by peer)\b", re.IGNORECASE)
 _DNS_RE = re.compile(r"\b(ENOTFOUND|DNS|name resolution|NXDOMAIN)\b", re.IGNORECASE)
 _5XX_RE = re.compile(r"\b(5\d\d|502|503|504)\b", re.IGNORECASE)
+_4XX_RE = re.compile(r"\b(4\d\d|401|403|404|429)\b", re.IGNORECASE)
+_OOM_RE = re.compile(r"\b(out of memory|OOM|OutOfMemoryError|MemoryError)\b", re.IGNORECASE)
+_DB_RE = re.compile(r"\b(database|DB|SQL|query|connection pool|deadlock)\b", re.IGNORECASE)
+_DISK_RE = re.compile(r"\b(disk full|no space left|ENOSPC|storage)\b", re.IGNORECASE)
+_CPU_RE = re.compile(r"\b(CPU|high load|overload|throttl)\b", re.IGNORECASE)
+_AUTH_RE = re.compile(r"\b(authentication|authorization|unauthorized|forbidden|token|credential)\b", re.IGNORECASE)
+_RATE_LIMIT_RE = re.compile(r"\b(rate limit|too many requests|throttle|quota)\b", re.IGNORECASE)
+_CRASH_RE = re.compile(r"\b(crash|panic|segfault|core dump|fatal)\b", re.IGNORECASE)
+_RESTART_RE = re.compile(r"\b(restart|reboot|killed|terminated)\b", re.IGNORECASE)
+_SSL_RE = re.compile(r"\b(SSL|TLS|certificate|handshake)\b", re.IGNORECASE)
+_PERMISSION_RE = re.compile(r"\b(permission denied|EACCES|access denied)\b", re.IGNORECASE)
 
 
 # ======================================================
@@ -163,8 +174,16 @@ def _count_by_source(logs: List[RuleLog]) -> Dict[str, int]:
     return counts
 
 
+def _count_matching_logs(regex: re.Pattern, logs: List[RuleLog]) -> int:
+    return sum(1 for log in logs if regex.search(log.message or ""))
+
+
+def _has_warn_level(logs: List[RuleLog]) -> bool:
+    return any(log.level == LogLevel.WARN for log in logs)
+
+
 # ======================================================
-# Default Rule Set (v1.0)
+# Default Rule Set (v2.0)
 # ======================================================
 
 def default_rules() -> List[Rule]:
@@ -283,6 +302,253 @@ def default_rules() -> List[Rule]:
                 "재시도 정책 및 서킷 브레이커 설정 점검",
             ],
         ),
+
+        Rule(
+            rule_id="R007",
+            title="Out of Memory 감지",
+            score=0.40,
+            predicate=lambda logs: _any_message_regex(_OOM_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 OOM / OutOfMemoryError / MemoryError 키워드가 포함됨"
+            ),
+            causes=[
+                "메모리 누수(Memory Leak)",
+                "할당된 메모리 부족",
+                "대용량 데이터 처리 중 메모리 초과",
+            ],
+            actions=[
+                "힙 덤프 분석 및 메모리 프로파일링",
+                "컨테이너/인스턴스 메모리 할당량 증가",
+                "메모리 사용량이 높은 코드 최적화",
+            ],
+        ),
+
+        Rule(
+            rule_id="R008",
+            title="데이터베이스 관련 오류",
+            score=0.30,
+            predicate=lambda logs: (
+                    _any_message_regex(_DB_RE, logs) and
+                    (_any_level(LogLevel.ERROR, logs) or _has_warn_level(logs))
+            ),
+            evidence_builder=lambda logs: (
+                "로그에 데이터베이스/SQL/쿼리 관련 키워드와 에러가 함께 포함됨"
+            ),
+            causes=[
+                "DB 커넥션 풀 고갈",
+                "느린 쿼리로 인한 타임아웃",
+                "데드락 또는 락 경합",
+                "DB 서버 과부하",
+            ],
+            actions=[
+                "DB 커넥션 풀 설정 및 사용률 확인",
+                "슬로우 쿼리 로그 분석",
+                "DB 서버 리소스 및 락 상태 점검",
+                "인덱스 및 쿼리 최적화",
+            ],
+        ),
+
+        Rule(
+            rule_id="R009",
+            title="디스크 용량 부족",
+            score=0.35,
+            predicate=lambda logs: _any_message_regex(_DISK_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 disk full / no space left / ENOSPC 키워드가 포함됨"
+            ),
+            causes=[
+                "로그 파일 과다 적재",
+                "임시 파일 정리 미흡",
+                "디스크 할당량 초과",
+            ],
+            actions=[
+                "디스크 사용량 확인 (df -h)",
+                "대용량 파일 및 로그 정리",
+                "볼륨 확장 또는 로그 로테이션 설정",
+            ],
+        ),
+
+        Rule(
+            rule_id="R010",
+            title="CPU 과부하",
+            score=0.25,
+            predicate=lambda logs: _any_message_regex(_CPU_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 CPU / high load / throttle 관련 키워드가 포함됨"
+            ),
+            causes=[
+                "트래픽 급증",
+                "비효율적인 알고리즘 또는 무한 루프",
+                "컨테이너 CPU 제한 초과",
+            ],
+            actions=[
+                "CPU 사용률 및 프로세스별 부하 확인",
+                "부하 테스트 및 프로파일링",
+                "오토스케일링 설정 및 리소스 할당 증가",
+            ],
+        ),
+
+        Rule(
+            rule_id="R011",
+            title="인증/인가 실패",
+            score=0.25,
+            predicate=lambda logs: _any_message_regex(_AUTH_RE, logs) and _any_message_regex(_4XX_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 인증/인가 관련 키워드와 4xx 에러가 함께 포함됨"
+            ),
+            causes=[
+                "만료된 토큰 또는 자격증명",
+                "권한 설정 오류",
+                "인증 서비스 장애",
+            ],
+            actions=[
+                "토큰 및 자격증명 유효성 확인",
+                "IAM 정책 및 권한 설정 검토",
+                "인증 서비스 로그 및 상태 점검",
+            ],
+        ),
+
+        Rule(
+            rule_id="R012",
+            title="Rate Limit 초과",
+            score=0.20,
+            predicate=lambda logs: _any_message_regex(_RATE_LIMIT_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 rate limit / too many requests / throttle 키워드가 포함됨"
+            ),
+            causes=[
+                "API 호출 빈도 초과",
+                "요청 쿼터 한도 도달",
+                "DDoS 또는 비정상 트래픽",
+            ],
+            actions=[
+                "API 호출 패턴 및 빈도 분석",
+                "Rate Limit 설정 조정 요청",
+                "백오프 전략 및 캐싱 적용",
+            ],
+        ),
+
+        Rule(
+            rule_id="R013",
+            title="애플리케이션 크래시",
+            score=0.45,
+            predicate=lambda logs: _any_message_regex(_CRASH_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 crash / panic / segfault / fatal 키워드가 포함됨"
+            ),
+            causes=[
+                "핸들링되지 않은 예외",
+                "메모리 접근 오류",
+                "심각한 버그 또는 논리 오류",
+            ],
+            actions=[
+                "크래시 덤프 및 스택 트레이스 분석",
+                "최근 코드 변경사항 롤백 검토",
+                "에러 핸들링 로직 강화",
+            ],
+        ),
+
+        Rule(
+            rule_id="R014",
+            title="서비스 재시작 감지",
+            score=0.30,
+            predicate=lambda logs: _any_message_regex(_RESTART_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 restart / reboot / killed / terminated 키워드가 포함됨"
+            ),
+            causes=[
+                "헬스체크 실패로 인한 자동 재시작",
+                "리소스 부족으로 인한 강제 종료",
+                "수동 재시작 또는 배포",
+            ],
+            actions=[
+                "재시작 직전 로그 및 메트릭 확인",
+                "헬스체크 설정 및 임계값 검토",
+                "리소스 할당 및 안정성 점검",
+            ],
+        ),
+
+        Rule(
+            rule_id="R015",
+            title="SSL/TLS 인증서 문제",
+            score=0.30,
+            predicate=lambda logs: (
+                    _any_message_regex(_SSL_RE, logs) and
+                    (_any_level(LogLevel.ERROR, logs) or _has_warn_level(logs))
+            ),
+            evidence_builder=lambda logs: (
+                "로그에 SSL/TLS/certificate 관련 키워드와 에러가 함께 포함됨"
+            ),
+            causes=[
+                "인증서 만료",
+                "인증서 체인 불일치",
+                "자체 서명 인증서 신뢰 문제",
+            ],
+            actions=[
+                "인증서 유효기간 확인",
+                "인증서 체인 및 중간 인증서 검증",
+                "클라이언트 truststore 설정 확인",
+            ],
+        ),
+
+        Rule(
+            rule_id="R016",
+            title="권한 거부 오류",
+            score=0.25,
+            predicate=lambda logs: _any_message_regex(_PERMISSION_RE, logs),
+            evidence_builder=lambda logs: (
+                "로그에 permission denied / EACCES / access denied 키워드가 포함됨"
+            ),
+            causes=[
+                "파일 또는 디렉토리 권한 부족",
+                "실행 권한 미설정",
+                "사용자/그룹 권한 불일치",
+            ],
+            actions=[
+                "파일 및 디렉토리 권한 확인 (ls -la)",
+                "프로세스 실행 사용자 확인",
+                "필요 시 chmod/chown으로 권한 수정",
+            ],
+        ),
+
+        Rule(
+            rule_id="R017",
+            title="4xx 클라이언트 에러 패턴",
+            score=0.15,
+            predicate=lambda logs: _count_matching_logs(_4XX_RE, logs) >= 3,
+            evidence_builder=lambda logs: (
+                f"로그에 4xx 상태 코드가 {_count_matching_logs(_4XX_RE, logs)}회 이상 반복됨"
+            ),
+            causes=[
+                "잘못된 요청 파라미터",
+                "존재하지 않는 리소스 접근",
+                "클라이언트 측 버그",
+            ],
+            actions=[
+                "요청 페이로드 및 파라미터 검증",
+                "API 문서와 실제 구현 일치 확인",
+                "클라이언트 코드 검토",
+            ],
+        ),
+
+        Rule(
+            rule_id="R018",
+            title="WARN 레벨 로그 다수 존재",
+            score=0.15,
+            predicate=lambda logs: sum(1 for log in logs if log.level == LogLevel.WARN) >= 3,
+            evidence_builder=lambda logs: (
+                f"level=WARN 로그가 {sum(1 for log in logs if log.level == LogLevel.WARN)}건 발생함"
+            ),
+            causes=[
+                "잠재적 문제 상황 발생",
+                "설정 또는 리소스 관련 경고",
+            ],
+            actions=[
+                "WARN 로그 내용 상세 검토",
+                "반복되는 경고 패턴 분석",
+                "예방적 조치 수행",
+            ],
+        ),
     ]
 
 
@@ -300,6 +566,8 @@ def build_rule_summary(matches: List[RuleMatch]) -> str:
 
 def evidence_count_bonus(matches: List[RuleMatch]) -> float:
     count = len(matches)
+    if count >= 5:
+        return 0.20
     if count >= 4:
         return 0.15
     if count == 3:
@@ -313,11 +581,32 @@ def interaction_bonus(matches: List[RuleMatch]) -> float:
     rule_ids = {m.rule_id for m in matches}
     bonus = 0.0
 
+    # 타임아웃 + 5xx 조합
     if {"R001", "R004"} <= rule_ids:
         bonus += 0.15
+
+    # 타임아웃 + ERROR 조합
     if {"R001", "R005"} <= rule_ids:
         bonus += 0.10
+
+    # 연결실패 + DNS 조합
     if {"R002", "R003"} <= rule_ids:
+        bonus += 0.10
+
+    # OOM + 크래시 조합
+    if {"R007", "R013"} <= rule_ids:
+        bonus += 0.15
+
+    # DB 오류 + 타임아웃 조합
+    if {"R008", "R001"} <= rule_ids:
+        bonus += 0.12
+
+    # 디스크 부족 + 크래시 조합
+    if {"R009", "R013"} <= rule_ids:
+        bonus += 0.12
+
+    # CPU 과부하 + 타임아웃 조합
+    if {"R010", "R001"} <= rule_ids:
         bonus += 0.10
 
     return bonus
@@ -359,7 +648,7 @@ def aggregate(matches: List[RuleMatch]) -> Dict:
 
     return {
         "strategy": "rule",
-        "ruleset_version": "v1.0",
+        "ruleset_version": "v2.0",
         "confidence": round(confidence, 2),
         "confidence_level": confidence_level(confidence),
         "summary": build_rule_summary(matches),

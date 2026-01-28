@@ -8,6 +8,8 @@ from src.model.Project import Project
 from src.model.Tenant import Tenant
 from src.model.User import User
 from src.model.weekly_report import WeeklyReport
+from src.model.refresh_token import RefreshToken
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

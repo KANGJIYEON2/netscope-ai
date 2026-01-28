@@ -1,51 +1,27 @@
 import { create } from "zustand";
+import { logout as apiLogout } from "@/lib/api/auth";
 
 interface AuthState {
-  accessToken: string | null;
-  tenantId: string | null;
   hydrated: boolean;
-
-  login: (token: string, tenantId: string) => void;
-  logout: () => void;
   hydrate: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
-  tenantId: null,
   hydrated: false,
 
   hydrate: () => {
-    if (typeof window === "undefined") return;
-
-    const token = localStorage.getItem("accessToken");
-    const tenantId = localStorage.getItem("tenantId");
-
-    set({
-      accessToken: token,
-      tenantId,
-      hydrated: true,
-    });
+    // ✅ 쿠키는 HttpOnly라 JS로 읽을 수 없음
+    // 그래서 프론트 hydration 의미만 살려둠
+    set({ hydrated: true });
   },
 
-  login: (token, tenantId) => {
-    localStorage.setItem("accessToken", token);
-    localStorage.setItem("tenantId", tenantId);
-
-    set({
-      accessToken: token,
-      tenantId,
-    });
-  },
-
-  logout: () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("tenantId");
-
-    set({
-      accessToken: null,
-      tenantId: null,
-      hydrated: true, // ❗ 로그아웃해도 hydration 상태는 유지
-    });
+  logout: async () => {
+    try {
+      await apiLogout(); // ✅ 서버 쿠키 삭제 + refresh revoke
+    } finally {
+      set({ hydrated: true });
+      // accessToken/tenantId 같은 상태 자체가 없으니 따로 set 필요 없음
+    }
   },
 }));

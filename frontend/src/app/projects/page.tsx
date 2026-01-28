@@ -2,34 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { fetchProjects, ProjectItem } from "@/lib/api/project";
-import { useAuthStore } from "@/lib/store/authStore";
+import LogoutButton from "@/app/components/common/LogoutButton";
 
 export default function ProjectsPage() {
-  const router = useRouter();
-
-  // 🔐 Auth 상태 (JWT 기준)
-  const { accessToken, hydrated, hydrate } = useAuthStore();
-
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1️⃣ hydration
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
-  // 2️⃣ 인증 확인 + 프로젝트 로드
-  useEffect(() => {
-    if (!hydrated) return;
-
-    if (!accessToken) {
-      router.push("/auth/login");
-      return;
-    }
-
     const load = async () => {
       try {
         setLoading(true);
@@ -43,10 +24,9 @@ export default function ProjectsPage() {
     };
 
     load();
-  }, [hydrated, accessToken, router]);
+  }, []);
 
-  // 3️⃣ 로딩 상태
-  if (!hydrated || loading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center text-zinc-400">
         Loading...
@@ -57,8 +37,8 @@ export default function ProjectsPage() {
   return (
     <div className="flex min-h-screen bg-zinc-950 text-white">
       {/* ================= Left Navigation ================= */}
-      <aside className="w-56 border-r border-zinc-800 p-4">
-        <nav className="space-y-2">
+      <aside className="flex flex-col w-56 border-r border-zinc-800 p-4">
+        <nav className="space-y-2 flex-1">
           <Link
             href="/test-log"
             className="block rounded px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-white"
@@ -73,6 +53,11 @@ export default function ProjectsPage() {
             Project Log
           </Link>
         </nav>
+
+        {/* 🔻 Logout */}
+        <div className="pt-4 border-t border-zinc-800">
+          <LogoutButton />
+        </div>
       </aside>
 
       {/* ================= Main Content ================= */}

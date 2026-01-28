@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api/auth";
-import { useAuthStore } from "@/lib/store/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
-  const auth = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,9 +17,7 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
 
-      const res = await login({ email, password });
-      auth.login(res.access_token, res.tenant_id);
-
+      await login({ email, password }); // ✅ 쿠키 저장됨(백엔드)
       router.push("/projects");
     } catch {
       setError("로그인 실패");

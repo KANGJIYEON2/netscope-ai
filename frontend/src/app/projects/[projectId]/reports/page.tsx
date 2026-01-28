@@ -14,43 +14,41 @@ import { fetchLogs } from "@/lib/api/log";
 import { LogItem } from "@/types/log";
 import { analyzeLogs } from "@/lib/api/analysis";
 import WeeklyReportCard from "../components/WeeklyReportCard";
-import { useAuthStore } from "@/lib/store/authStore";
 
 export default function ProjectReportsPage() {
-  const { projectId } = useParams();
-  const { hydrate, hydrated, accessToken } = useAuthStore();
+  const params = useParams();
+  const projectId = params?.projectId as string | undefined;
 
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [weekly, setWeekly] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
 
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
   const load = async () => {
     if (!projectId) return;
 
     setLoading(true);
 
-    const list = await fetchReports(projectId as string, { limit: 20 });
-    setReports(list);
-
     try {
-      const w = await fetchWeeklyReport(projectId as string);
-      setWeekly(w);
-    } catch {
-      setWeekly(null);
-    }
+      const list = await fetchReports(projectId, { limit: 20 });
+      setReports(list);
 
-    setLoading(false);
+      try {
+        const w = await fetchWeeklyReport(projectId);
+        setWeekly(w);
+      } catch {
+        setWeekly(null);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (!hydrated || !accessToken) return;
+    if (!projectId) return;
     load();
-  }, [hydrated, accessToken, projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   /** 🔥 최근 7일 로그 → 분석 실행 */
   const runWeeklyAnalysis = async () => {
@@ -60,7 +58,7 @@ export default function ProjectReportsPage() {
 
     try {
       // 1️⃣ 로그 조회
-      const logs: LogItem[] = await fetchLogs(projectId as string);
+      const logs: LogItem[] = await fetchLogs(projectId);
 
       // 2️⃣ 최근 7일 필터
       const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -74,16 +72,20 @@ export default function ProjectReportsPage() {
       }
 
       // 3️⃣ 분석 실행
-      await analyzeLogs(projectId as string, logIds, "rule");
+      await analyzeLogs(projectId, logIds, "rule");
 
       // 4️⃣ 새로고침
       await load();
+    } catch (e) {
+      // ✅ 401이면 apiClient 인터셉터가 refresh 후 실패 시 /auth/login 이동
+      console.error("Weekly analysis failed", e);
+      alert("분석 실행 실패");
     } finally {
       setAnalyzing(false);
     }
   };
 
-  if (!hydrated || loading) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center text-zinc-400">
         Loading...

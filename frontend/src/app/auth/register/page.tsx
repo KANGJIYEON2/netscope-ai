@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register } from "@/lib/api/auth";
-import { useAuthStore } from "@/lib/store/authStore";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const auth = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,11 +17,10 @@ export default function RegisterPage() {
       setLoading(true);
       setError(null);
 
-      const res = await register({ email, password });
-      auth.login(res.access_token, res.tenant_id);
-
+      await register({ email, password }); // ✅ 쿠키 저장됨(백엔드)
       router.push("/projects");
-    } catch {
+    } catch (e: any) {
+      // 백엔드에서 409(이메일 중복) 처리했으면 여기서 메시지 분기 가능
       setError("회원가입 실패");
     } finally {
       setLoading(false);

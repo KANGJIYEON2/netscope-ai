@@ -1,27 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { createProject } from "@/lib/api/project";
-import { useAuthStore } from "@/lib/store/authStore";
 
 export default function NewProjectPage() {
   const router = useRouter();
-  const { accessToken, hydrated, hydrate } = useAuthStore();
 
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!accessToken) router.push("/auth/login");
-  }, [hydrated, accessToken, router]);
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -31,20 +20,13 @@ export default function NewProjectPage() {
       await createProject(name.trim());
       router.push("/projects");
     } catch (e) {
+      // ✅ 401이면 apiClient 인터셉터가 refresh 시도 후 실패 시 /auth/login 이동
       console.error("Failed to create project", e);
       alert("프로젝트 생성 실패");
     } finally {
       setLoading(false);
     }
   };
-
-  if (!hydrated) {
-    return (
-      <div className="flex h-screen items-center justify-center text-zinc-400">
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen bg-zinc-950 text-white">

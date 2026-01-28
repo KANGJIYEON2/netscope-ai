@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 
+from src.core.config import settings
 from src.db.session import get_db
 from src.domain.auth import AuthDomainService
 from src.schemas.auth import RegisterRequest, LoginRequest
@@ -10,32 +11,36 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
 
-COOKIE_SECURE = False  # ✅ prod에서 True(HTTPS)
-COOKIE_SAMESITE = "lax"
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    access_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    refresh_max_age = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
     response.set_cookie(
-        ACCESS_COOKIE,
-        access_token,
+        key=ACCESS_COOKIE,
+        value=access_token,
         httponly=True,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        max_age=60 * 60,  # access ttl과 맞추기(예: 60분)
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=access_max_age,
         path="/",
     )
+
+    # ✅ 보안상 refresh는 auth 경로로 제한 (유지)
     response.set_cookie(
-        REFRESH_COOKIE,
-        refresh_token,
+        key=REFRESH_COOKIE,
+        value=refresh_token,
         httponly=True,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        max_age=60 * 60 * 24 * 14,  # refresh ttl과 맞추기(예: 14일)
-        path="/auth",
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=refresh_max_age,
+        path="/auth",  # or "/auth/refresh" 로 더 좁혀도 됨
     )
 
+
 def clear_auth_cookies(response: Response):
-    response.delete_cookie(ACCESS_COOKIE, path="/")
-    response.delete_cookie(REFRESH_COOKIE, path="/auth")
+    response.delete_cookie(key=ACCESS_COOKIE, path="/")
+    response.delete_cookie(key=REFRESH_COOKIE, path="/auth")
 
 
 @router.post("/register")

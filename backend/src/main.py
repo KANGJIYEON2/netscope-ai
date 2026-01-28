@@ -9,13 +9,14 @@ from src.api.v1.reports import router as report_router
 from src.api.v1.projects import router as projects_router
 from src.api.v1.auth import router as auth_router
 from src.api.v1.test import router as test_router
+from src.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="NETSCOPE AI")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 개발용 (나중에 도메인 제한)
+    allow_origins=[settings.FRONTEND_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],  # OPTIONS 포함
     allow_headers=["*"],

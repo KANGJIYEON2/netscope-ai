@@ -169,3 +169,61 @@ Rule 기반 + GPT 보강 분석을 통해 **운영 리스크를 빠르게 파악
 
 > **“로그를 쌓는 서비스가 아니라,  
 > 운영 판단에 필요한 ‘의미 있는 로그’만 남기는 분석 서비스”**
+
+---
+
+## 🚀 Local Stack (Docker Compose)
+
+```bash
+docker compose up -d --build
+# Postgres   → localhost:5432
+# Backend    → http://localhost:8000  (Swagger: /docs)
+# Frontend   → http://localhost:3000  (자동으로 /auth/login 으로 리다이렉트)
+```
+
+종료/초기화
+
+```bash
+docker compose down       # 컨테이너만 종료 (데이터 유지)
+docker compose down -v    # 볼륨까지 초기화 (DB 완전 wipe)
+```
+
+### Postgres — dev credentials
+
+| Field    | Value              |
+| -------- | ------------------ |
+| Host     | `localhost`        |
+| Port     | `5432`             |
+| Database | `netscope`         |
+| User     | `netscope`         |
+| Password | `netscope_dev_pw`  |
+
+```bash
+docker exec -it netscope-postgres psql -U netscope -d netscope
+```
+
+> ⚠️ Dev only. `docker-compose.yml` 에 평문 정의 — 운영 환경에서는 절대 그대로 쓰지 말 것.
+
+### 데모 계정 (시드 후 사용 가능)
+
+각 계정은 **자기 tenant 의 프로젝트/로그/분석 결과만** 볼 수 있습니다 (멀티테넌시 격리).
+
+| Email             | Password    | Tenant          | Projects                          | 시나리오                          |
+| ----------------- | ----------- | --------------- | --------------------------------- | --------------------------------- |
+| `alice@demo.io`   | `Demo1234!` | Alice Co.       | `gateway-prod`, `auth-service`    | gateway timeout + auth JWT 에러   |
+| `bob@demo.io`     | `Demo1234!` | Bob Industries  | `billing-api`, `worker-queue`     | DB connection 거부 + 워커 혼합 오류 |
+| `carol@demo.io`   | `Demo1234!` | Carol Labs      | `edge-cdn`, `checkout-flow`       | DNS 실패 + checkout 5xx           |
+
+각 계정은 **프로젝트 2개씩, 프로젝트당 18개의 로그, 1~2개의 사전 분석 결과** 를 가집니다.
+
+### 데모 데이터 초기화 / 재시드
+
+backend 컨테이너 안에서 시드 스크립트 실행:
+
+```bash
+# 첫 실행 또는 데이터 wipe 후 재시드 (drop_all + create_all)
+docker exec netscope-backend python -m scripts.seed --reset
+
+# 이미 테이블이 맞으면 기존 데모 계정은 건너뜀 (idempotent)
+docker exec netscope-backend python -m scripts.seed
+```

@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: netscope-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: netscope
+      POSTGRES_PASSWORD: netscope_dev_pw
+      POSTGRES_DB: netscope
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netscope -d netscope"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netscope-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 컨테이너 내부에서는 서비스 이름(postgres)으로 접근
+      DATABASE_URL: postgresql+psycopg://netscope:netscope_dev_pw@postgres:5432/netscope
+      APP_ENV: docker
+      # OPENAI_API_KEY는 호스트의 .env에서 주입됨 (아래 env_file)
+    env_file:
+      - ./backend/.env.docker
+    ports:
+      - "8000:8000"
+    # Use the CMD defined in backend/Dockerfile (uvicorn src.main:app)
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netscope-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Browser-side calls go to the host port, not the container hostname.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind-mount source for hot reload, but keep container's node_modules.
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next_cache:/app/.next
+
+volumes:
+  postgres_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  frontend_next_cache:
+    driver: local

@@ -182,8 +182,81 @@ def _has_warn_level(logs: List[RuleLog]) -> bool:
     return any(log.level == LogLevel.WARN for log in logs)
 
 
+def _error_rate(logs: List[RuleLog]) -> float:
+    """ERROR 로그 비율 (0.0~1.0)."""
+    if not logs:
+        return 0.0
+    return sum(1 for log in logs if log.level == LogLevel.ERROR) / len(logs)
+
+
+def _burst_count(logs: List[RuleLog], window_seconds: float = 60.0) -> int:
+    """지정 시간 윈도우 내 최대 로그 밀집도 (슬라이딩 윈도우)."""
+    if len(logs) < 2:
+        return len(logs)
+    sorted_logs = sorted(logs, key=lambda l: l.timestamp)
+    max_count = 1
+    for i, log in enumerate(sorted_logs):
+        count = 1
+        for j in range(i + 1, len(sorted_logs)):
+            delta = (sorted_logs[j].timestamp - log.timestamp).total_seconds()
+            if delta <= window_seconds:
+                count += 1
+            else:
+                break
+        max_count = max(max_count, count)
+    return max_count
+
+
+def _error_burst_count(logs: List[RuleLog], window_seconds: float = 60.0) -> int:
+    """ERROR 로그만 필터링한 버스트 카운트."""
+    error_logs = [l for l in logs if l.level == LogLevel.ERROR]
+    return _burst_count(error_logs, window_seconds)
+
+
+def _distinct_error_sources(logs: List[RuleLog]) -> Set[str]:
+    """ERROR 로그가 발생한 고유 source 집합."""
+    return {log.source for log in logs if log.level == LogLevel.ERROR}
+
+
+def _has_sequence(
+    logs: List[RuleLog],
+    first_re: re.Pattern,
+    then_re: re.Pattern,
+    max_gap_seconds: float = 300.0,
+) -> bool:
+    """first_re 매칭 로그 이후 max_gap_seconds 이내에 then_re 매칭 로그가 있는지."""
+    sorted_logs = sorted(logs, key=lambda l: l.timestamp)
+    for i, log_a in enumerate(sorted_logs):
+        if not first_re.search(log_a.message or ""):
+            continue
+        for j in range(i + 1, len(sorted_logs)):
+            delta = (sorted_logs[j].timestamp - log_a.timestamp).total_seconds()
+            if delta > max_gap_seconds:
+                break
+            if then_re.search(sorted_logs[j].message or ""):
+                return True
+    return False
+
+
+def _log_spike_ratio(logs: List[RuleLog], window_seconds: float = 60.0) -> float:
+    """최근 윈도우 대비 전체 평균 로그 발생 비율. 1.0 = 균등, >1 = 급증."""
+    if len(logs) < 3:
+        return 1.0
+    sorted_logs = sorted(logs, key=lambda l: l.timestamp)
+    total_span = (sorted_logs[-1].timestamp - sorted_logs[0].timestamp).total_seconds()
+    if total_span <= 0:
+        return 1.0
+    avg_rate = len(logs) / total_span
+    # 마지막 window_seconds 내 로그 수
+    cutoff = sorted_logs[-1].timestamp
+    recent = [l for l in sorted_logs
+              if (cutoff - l.timestamp).total_seconds() <= window_seconds]
+    recent_rate = len(recent) / window_seconds if window_seconds > 0 else 0
+    return recent_rate / avg_rate if avg_rate > 0 else 1.0
+
+
 # ======================================================
-# Default Rule Set (v2.0)
+# Default Rule Set (v3.0)
 # ======================================================
 
 def default_rules() -> List[Rule]:
@@ -549,6 +622,132 @@ def default_rules() -> List[Rule]:
                 "예방적 조치 수행",
             ],
         ),
+
+        # ==================================================
+        # v3.0 — 시간/통계/상관관계 분석 룰
+        # ==================================================
+
+        Rule(
+            rule_id="R019",
+            title="에러 버스트 (1분 내 집중 발생)",
+            score=0.40,
+            predicate=lambda logs: _error_burst_count(logs, 60.0) >= 5,
+            evidence_builder=lambda logs: (
+                f"1분 내 ERROR 로그가 {_error_burst_count(logs, 60.0)}건 집중 발생함"
+            ),
+            causes=[
+                "서비스 장애로 인한 연쇄 에러 발생",
+                "트래픽 급증으로 인한 동시 실패",
+                "의존 서비스 다운으로 인한 대량 에러",
+            ],
+            actions=[
+                "버스트 발생 시점 전후 이벤트 확인",
+                "의존 서비스 상태 점검",
+                "서킷 브레이커 및 백프레셔 설정 확인",
+            ],
+        ),
+
+        Rule(
+            rule_id="R020",
+            title="타임아웃 → 크래시 연쇄 패턴",
+            score=0.45,
+            predicate=lambda logs: _has_sequence(logs, _TIMEOUT_RE, _CRASH_RE, 300.0),
+            evidence_builder=lambda logs: (
+                "타임아웃 발생 후 5분 이내 크래시/패닉이 연쇄 발생함"
+            ),
+            causes=[
+                "타임아웃 누적으로 리소스 고갈 후 프로세스 크래시",
+                "타임아웃 핸들링 실패로 인한 비정상 종료",
+                "커넥션 풀 고갈 → OOM → 크래시 연쇄",
+            ],
+            actions=[
+                "타임아웃 발생 원인 우선 해결",
+                "그레이스풀 셧다운 및 에러 핸들링 강화",
+                "리소스 제한 및 서킷 브레이커 도입",
+            ],
+        ),
+
+        Rule(
+            rule_id="R021",
+            title="높은 에러율",
+            score=0.35,
+            predicate=lambda logs: len(logs) >= 5 and _error_rate(logs) >= 0.5,
+            evidence_builder=lambda logs: (
+                f"전체 로그 대비 에러율이 {_error_rate(logs):.0%}로 매우 높음 "
+                f"({sum(1 for l in logs if l.level == LogLevel.ERROR)}/{len(logs)})"
+            ),
+            causes=[
+                "서비스 전반의 장애 상태",
+                "배포 직후 전면적 오류 발생",
+                "인프라 레벨 장애 (DB/네트워크 등)",
+            ],
+            actions=[
+                "최근 배포 이력 및 변경사항 확인",
+                "인프라 헬스체크 수행",
+                "긴급 롤백 필요 여부 판단",
+            ],
+        ),
+
+        Rule(
+            rule_id="R022",
+            title="다중 source 동시 에러",
+            score=0.35,
+            predicate=lambda logs: len(_distinct_error_sources(logs)) >= 3,
+            evidence_builder=lambda logs: (
+                f"{len(_distinct_error_sources(logs))}개 source에서 동시에 에러 발생: "
+                f"{', '.join(sorted(_distinct_error_sources(logs)))}"
+            ),
+            causes=[
+                "공통 의존 서비스(DB/캐시/네트워크) 장애",
+                "인프라 레벨 문제 (DNS/로드밸런서 등)",
+                "설정 변경으로 인한 전파 장애",
+            ],
+            actions=[
+                "공통 의존 서비스 상태 확인",
+                "네트워크 및 인프라 레벨 점검",
+                "최근 설정 변경 이력 확인",
+            ],
+        ),
+
+        Rule(
+            rule_id="R023",
+            title="로그 급증 (스파이크)",
+            score=0.25,
+            predicate=lambda logs: len(logs) >= 10 and _log_spike_ratio(logs, 60.0) >= 3.0,
+            evidence_builder=lambda logs: (
+                f"최근 1분의 로그 발생률이 평균 대비 {_log_spike_ratio(logs, 60.0):.1f}배 급증함"
+            ),
+            causes=[
+                "트래픽 급증 또는 DDoS 공격",
+                "반복 재시도로 인한 로그 폭발",
+                "모니터링 시스템 과잉 로깅",
+            ],
+            actions=[
+                "트래픽 소스 분석",
+                "Rate Limiting 설정 확인",
+                "로그 레벨 및 샘플링 설정 검토",
+            ],
+        ),
+
+        Rule(
+            rule_id="R024",
+            title="연결실패 → 서비스 재시작 연쇄",
+            score=0.40,
+            predicate=lambda logs: _has_sequence(logs, _CONN_RE, _RESTART_RE, 300.0),
+            evidence_builder=lambda logs: (
+                "연결 실패 후 5분 이내 서비스 재시작이 연쇄 발생함"
+            ),
+            causes=[
+                "헬스체크 실패로 인한 자동 재시작 반복",
+                "의존 서비스 다운 → 연결 실패 → 컨테이너 재시작 루프",
+                "네트워크 파티션으로 인한 반복 장애",
+            ],
+            actions=[
+                "헬스체크 설정 및 타임아웃 검토",
+                "의존 서비스 연결 복구 확인",
+                "재시작 루프 여부 점검 (CrashLoopBackOff 등)",
+            ],
+        ),
     ]
 
 
@@ -607,6 +806,30 @@ def interaction_bonus(matches: List[RuleMatch]) -> float:
 
     # CPU 과부하 + 타임아웃 조합
     if {"R010", "R001"} <= rule_ids:
+        bonus += 0.10
+
+    # 에러 버스트 + 다중 source = 인프라 장애
+    if {"R019", "R022"} <= rule_ids:
+        bonus += 0.15
+
+    # 에러 버스트 + 높은 에러율 = 전면 장애
+    if {"R019", "R021"} <= rule_ids:
+        bonus += 0.12
+
+    # 타임아웃 → 크래시 + OOM = 리소스 고갈 체인
+    if {"R020", "R007"} <= rule_ids:
+        bonus += 0.15
+
+    # 연결실패 → 재시작 + 다중 source = 인프라 연쇄
+    if {"R024", "R022"} <= rule_ids:
+        bonus += 0.15
+
+    # 높은 에러율 + DB 오류 = DB 기반 전면 장애
+    if {"R021", "R008"} <= rule_ids:
+        bonus += 0.12
+
+    # 로그 급증 + 에러 버스트 = 장애 폭풍
+    if {"R023", "R019"} <= rule_ids:
         bonus += 0.10
 
     return bonus

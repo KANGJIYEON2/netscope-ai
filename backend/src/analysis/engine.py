@@ -97,9 +97,24 @@ class AnalysisEngine:
 
             result["summary"] = g.get("summary", result["summary"])
 
-        # 3️⃣ Severity 계산
+        # 3️⃣ Severity 계산 (confidence + 룰 조합 기반)
         confidence = result["confidence"]
-        if confidence >= 0.75:
+        matched_ids = {s["rule_id"] for s in signals}
+
+        # CRITICAL 자동 승격: 치명적 룰 조합
+        critical_combos = [
+            {"R020", "R007"},   # 타임아웃→크래시 + OOM
+            {"R019", "R022"},   # 에러 버스트 + 다중 source
+            {"R024", "R022"},   # 연결실패→재시작 + 다중 source
+        ]
+        has_critical = any(combo <= matched_ids for combo in critical_combos)
+
+        # HIGH 강제 승격: 고위험 단독 룰
+        high_force_rules = {"R013", "R007", "R020"}  # 크래시, OOM, 타임아웃→크래시
+
+        if has_critical or (confidence >= 0.85 and len(matched_ids) >= 5):
+            severity = SeverityLevel.CRITICAL
+        elif confidence >= 0.75 or (matched_ids & high_force_rules):
             severity = SeverityLevel.HIGH
         elif confidence >= 0.45:
             severity = SeverityLevel.MEDIUM

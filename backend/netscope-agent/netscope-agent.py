@@ -7,12 +7,11 @@ import requests
 import os
 from datetime import datetime, UTC
 
-# 중요 v2에 붙이기
-
 # =========================
 # CONFIG
 # =========================
 API_URL = "http://127.0.0.1:8000/ingest"
+OFFSET_DIR = os.path.join(os.path.expanduser("~"), ".netscope-agent")
 
 # 로그 필터 룰 (Agent-side Rule v0)
 KEYWORDS = re.compile(
@@ -47,6 +46,30 @@ def detect_level(line: str) -> str:
     if not m:
         return "DEBUG"
     return m.group(1).upper()
+
+def _offset_path(log_path: str) -> str:
+    """Generate a unique offset file path for the given log file."""
+    os.makedirs(OFFSET_DIR, exist_ok=True)
+    safe_name = re.sub(r"[^\w]", "_", os.path.abspath(log_path))
+    return os.path.join(OFFSET_DIR, f"{safe_name}.offset")
+
+
+def load_offset(log_path: str) -> int:
+    """Load saved byte offset, or 0 if no saved state."""
+    path = _offset_path(log_path)
+    try:
+        with open(path, "r") as f:
+            return int(f.read().strip())
+    except (FileNotFoundError, ValueError):
+        return 0
+
+
+def save_offset(log_path: str, offset: int) -> None:
+    """Persist current byte offset to disk."""
+    path = _offset_path(log_path)
+    with open(path, "w") as f:
+        f.write(str(offset))
+
 
 def is_interesting(line: str) -> bool:
     """
@@ -115,9 +138,10 @@ def tail_file(
     print("[BOOT] tenant:", tenant_id)
     print("[BOOT] project:", project_id)
     print("[BOOT] api:", API_URL)
-    print()
 
-    last_size = 0
+    last_size = load_offset(path)
+    print(f"[BOOT] resume offset: {last_size} bytes")
+    print()
 
     while True:
         try:
@@ -127,6 +151,12 @@ def tail_file(
                 continue
 
             current_size = os.path.getsize(path)
+
+            # Log rotation: file was truncated
+            if current_size < last_size:
+                print("[ROTATE] file truncated, resetting offset")
+                last_size = 0
+                save_offset(path, 0)
 
             if current_size > last_size:
                 with open(path, "r", errors="ignore") as f:
@@ -158,6 +188,7 @@ def tail_file(
                     )
 
                 last_size = current_size
+                save_offset(path, last_size)
 
         except Exception as e:
             print("[AGENT ERROR]", repr(e))

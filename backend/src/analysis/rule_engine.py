@@ -106,32 +106,38 @@ class RuleEngine:
     def run_raw(self, raw_logs: List[str]) -> List[RuleMatch]:
         """
         Adapter for ingestion pipeline.
-        - Converts raw log lines into RuleLog
+        - Parses structured logs (JSON/KV/syslog) via parser
+        - Falls back to plain text with level inference
         - No DB persistence
         """
+        from src.ingest.parser import parse_log_lines
+
         now = datetime.now(UTC)
+        parsed = parse_log_lines(raw_logs)
 
         logs = [
             RuleLog(
-                source="ingest",
-                message=line,
-                level=self._infer_level(line),
+                source=p.source,
+                message=p.message,
+                level=self._to_log_level(p.level),
                 timestamp=now,
             )
-            for line in raw_logs
+            for p in parsed
         ]
 
         return self.run(logs)
 
-    def _infer_level(self, line: str) -> LogLevel:
-        upper = line.upper()
-        if "ERROR" in upper:
-            return LogLevel.ERROR
-        if "WARN" in upper:
-            return LogLevel.WARN
-        if "DEBUG" in upper:
-            return LogLevel.DEBUG
-        return LogLevel.INFO
+    @staticmethod
+    def _to_log_level(level_str: str) -> LogLevel:
+        mapping = {
+            "ERROR": LogLevel.ERROR,
+            "FATAL": LogLevel.ERROR,
+            "CRITICAL": LogLevel.ERROR,
+            "WARN": LogLevel.WARN,
+            "WARNING": LogLevel.WARN,
+            "DEBUG": LogLevel.DEBUG,
+        }
+        return mapping.get(level_str.upper(), LogLevel.INFO)
 
 
 # ======================================================

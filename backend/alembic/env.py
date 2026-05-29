@@ -13,7 +13,7 @@ load_dotenv()
 
 from src.db.base import Base
 # Import all models so Base.metadata contains them
-from src.model import User, log, Project, analysis_result, weekly_report, refresh_token, Tenant  # noqa: F401
+from src.model import User, log, Project, analysis_result, weekly_report, refresh_token, Tenant, pattern  # noqa: F401
 
 config = context.config
 

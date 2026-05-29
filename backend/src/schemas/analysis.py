@@ -34,6 +34,9 @@ class AnalysisResultDTO(BaseModel):
     # 왜 이렇게 판단됐는지
     matched_rules: List[str] = Field(default_factory=list)
 
+    # 학습된 패턴 매칭 (L2)
+    matched_patterns: List[dict] = Field(default_factory=list)
+
     # 실제 사용된 전략
     strategy_used: str = Field(default="rule")
 

@@ -57,6 +57,22 @@ def analyze_logs(
 
     # 2️⃣ 분석 실행
     result = engine.analyze(logs, dto.strategy)
+
+    # 2.5️⃣ 패턴 매칭 (L2 — learned patterns)
+    matched_patterns = []
+    try:
+        from src.learning.matcher import match_patterns
+        matched_patterns = match_patterns(
+            db=db,
+            tenant_id=tenant_id,
+            messages=[log.message for log in logs],
+        )
+        # Add pattern scores to confidence
+        pattern_score = sum(p["score"] for p in matched_patterns)
+        if pattern_score > 0:
+            result["confidence"] = min(result["confidence"] + pattern_score, 1.0)
+    except Exception:
+        pass  # Pattern matching failure must not break analysis
     """
     result 예시:
     {
@@ -107,6 +123,7 @@ def analyze_logs(
         suspected_causes=analysis.suspected_causes,
         recommended_actions=analysis.recommended_actions,
         matched_rules=analysis.matched_rules,
+        matched_patterns=matched_patterns,
         strategy_used=analysis.strategy_used,
         received_at=analysis.received_at,
     )

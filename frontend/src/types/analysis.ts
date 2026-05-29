@@ -1,5 +1,5 @@
-export type Severity = "LOW" | "MEDIUM" | "HIGH";
-export type Strategy = "rule" | "gpt";
+export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type Strategy = "rule" | "gpt" | "ai" | "hybrid";
 
 export interface AnalysisResult {
   summary: string;

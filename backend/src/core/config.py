@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     # ===============================
     # Frontend / CORS
     # ===============================
+    # Comma-separated origins: "http://localhost:3000,https://app.example.com"
     FRONTEND_ORIGIN: str = "http://localhost:3000"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.FRONTEND_ORIGIN.split(",") if o.strip()]
 
     # ===============================
     # Cookie (Auth)

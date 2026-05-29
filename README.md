@@ -5,15 +5,15 @@
 ║   NETSCOPE-AI                                                                ║
 ║   Explainable Network/Application Log Diagnostics                            ║
 ║                                                                              ║
-║   Stage  : MVP+  (Auth · DB · Multi-tenant · Weekly Report 까지 가동)         ║
+║   Stage  : MVP++  (Auth · DB · Multi-tenant · Rule Learning L0~L4 가동)       ║
 ║   Stack  : FastAPI · SQLAlchemy · Postgres · Next.js 16 · Tailwind 4         ║
-║   Theme  : "왜 그렇게 판단했는가" 를 룰 ID + 근거 + 점수로 노출                  ║
+║   Theme  : "왜 그렇게 판단했는가" 를 룰 ID + 학습 패턴 + 근거 + 점수로 노출       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-> **한 줄 요약**: 로그 묶음을 **Rule Engine (R001~R018) + 선택적 GPT 보강** 으로 분석해,
-> 매칭된 룰 ID·근거·신뢰도·심각도까지 함께 응답하는 **설명 가능한** 진단 시스템.
-> 현재는 **인증·DB·멀티테넌시·주간 리포트** 까지 실제 동작. 다음 단계는 **인시던트 대시보드 UI · 룰 학습 파이프라인**.
+> **한 줄 요약**: 로그 묶음을 **Rule Engine v3.0 (R001~R024) + Pattern Learning (L0~L4) + 선택적 GPT 보강** 으로 분석해,
+> 매칭된 룰 ID·학습 패턴·근거·신뢰도·심각도까지 함께 응답하는 **설명 가능한** 진단 시스템.
+> 현재는 **인증·DB·멀티테넌시·주간 리포트·룰 학습·패턴 매칭** 까지 실제 동작.
 
 > 📎 에이전트/기여자 작업 가이드 → [`CLAUDE.md`](./CLAUDE.md)
 > 📎 PM 고도화 기획안 → [`docs/PM_ENHANCEMENT_PLAN.md`](./docs/PM_ENHANCEMENT_PLAN.md)
@@ -25,31 +25,39 @@
 ## 🗺️ 상태 한눈에 보기
 
 ```
-영역                상태      비고
+영역                        상태      비고
 ──────────────────────────────────────────────────────────────────────
-🟢 Rule Engine      DONE      R001~R018, 상호작용 보너스, 검증셋 60개
-🟢 Auth             DONE      httpOnly 쿠키 + Refresh Rotation + Reuse 탐지
-🟢 DB 영속화        DONE      Postgres + SQLAlchemy + create_all 초기화
-🟢 Multi-tenancy    DONE      JWT(sub, tenant_id) → 모든 라우터에서 tenant 강제
-🟢 Projects         DONE      tenant 단위 CRUD, 프로젝트 단위 라우팅
-🟢 Analysis API     DONE      /projects/{id}/analysis + signals + matched_rules
-🟢 Reports API      DONE      list/trend/weekly + GPT 주간 요약 + 리스크 예측
-🟢 Ingest Pipeline  DONE      raw 로그 → 룰 → aggregator → analysis_results
-🟢 Docker Compose   DONE      postgres + backend + frontend (hot reload)
-🟢 Seed Script      DONE      3 tenants × 2 projects × 18 logs, demo 시연용
-🟡 Frontend Routes  PARTIAL   /auth, /projects, reports 동작 — 대시보드 미완성
-🟡 Severity Mapping PARTIAL   백엔드 CRITICAL 정의됐으나 매핑 미사용 (LOW/MED/HIGH만)
-🟡 Strategy         PARTIAL   rule / gpt 만 동작 — ai / hybrid 미구현
-🚧 /projects/overview  STUB   프론트가 호출하지만 백엔드 라우트 없음 (404)
-🚧 GPT 모델명       LEGACY    `gpt-4.1-mini` — 의도가 `gpt-4o-mini`라면 정정 필요
-🚧 netscope-agent   BROKEN    `POST /logs` 호출 → 현재 라우트는 /projects/{id}/logs (auth 필요)
-❌ /health 엔드포인트  NONE   main.py 등록 없음, health.py 비어있음
-❌ 테스트            NONE     test_health.py 본문 비어 있음, 회귀 방어 부재
-❌ Alembic 마이그레이션 NONE   create_all 만 사용 — 스키마 변경 시 drop+recreate 필요
-❌ 룰 학습 (L0~L4)  미착수   기획서만 존재
+🟢 Rule Engine v3.0         DONE      R001~R024, 시간/통계/상관관계 룰, 13개 interaction bonus
+🟢 Auth                     DONE      httpOnly 쿠키 + Refresh Rotation + Reuse 탐지
+🟢 DB 영속화                DONE      Postgres + SQLAlchemy + Alembic 설정 완료
+🟢 Multi-tenancy            DONE      JWT(sub, tenant_id) → 모든 라우터에서 tenant 강제
+🟢 Projects                 DONE      tenant 단위 CRUD + /projects/overview (대시보드)
+🟢 Analysis API             DONE      /projects/{id}/analysis + signals + matched_rules + matched_patterns
+🟢 Reports API              DONE      list/trend/weekly + GPT 주간 요약 + 리스크 예측
+🟢 Ingest Pipeline          DONE      raw 로그 → 구조화 파서 → 룰 → 패턴 마이닝 → 영속화
+🟢 Docker Compose           DONE      postgres + backend + frontend (hot reload)
+🟢 Seed Script              DONE      3 tenants × 2 projects × 18 logs
+🟢 /health                  DONE      DB ping + liveness check
+🟢 Agent ↔ /ingest          DONE      POST /ingest 배치 전송 + 오프셋 영속화 + 로그 회전 감지
+🟢 GPT 모델명               DONE      gpt-4o-mini (4곳 수정 완료)
+🟢 CORS 다환경              DONE      콤마 구분 복수 origin 지원
+🟢 Severity/Strategy 동기화  DONE      CRITICAL + ai/hybrid 프론트엔드 타입 추가
+🟢 severity.ts 컬러 매핑     DONE      cyan/amber/red/fuchsia 정본 (다크테마)
+🟢 구조화 파서               DONE      JSON/key=value/syslog/plain text 자동감지
+🟢 7일 리텐션                DONE      scripts/retention.py (--days N --dry-run)
+🟢 Alembic                  DONE      초기 설정 + 모델 import 완료
+🟢 테스트                    DONE      43개 (health/overview/rule engine/parser/learning)
+🟢 Rule Learning L0          DONE      Drain 패턴 마이닝 + 변수 마스킹 + 카탈로그 DB
+🟢 Rule Learning L1          DONE      패턴 관리 API (list/detail/label/dismiss)
+🟢 Rule Learning L2          DONE      분석 시 PatternMatcher 통합, matched_patterns 노출
+🟢 Rule Learning L3          DONE      피드백 API + 자동 승격/강등
+🟢 Rule Learning L4          DONE      온라인 score_adjust + 안전 가드
+🟡 Frontend Routes          PARTIAL   /auth, /projects, reports 동작 — 대시보드 미완성
+🟡 패턴 관리 UI             PARTIAL   백엔드 API 완료 — 프론트엔드 /patterns 페이지 미구현
+❌ L5 임베딩 유사도          미착수   sentence-transformer + HDBSCAN (장기)
 ```
 
-> **범례** — 🟢 동작 · 🟡 일부 동작 · 🚧 부분 구현 / 깨짐 · ❌ 미구현
+> **범례** — 🟢 동작 · 🟡 일부 동작 · ❌ 미구현
 
 ---
 
@@ -68,7 +76,8 @@
 │    · BOM/제어문자 정리 · level 자동 감지 (ERROR/WARN/INFO/DEBUG)                  │
 │    · Agent-side filter v0: ERROR / WARN / TIMEOUT / 5xx 만 통과                  │
 │    · X-Tenant-ID / X-Project-ID 헤더 부착                                        │
-│    ⚠ 현재 POST URL이 `/logs` (legacy) — 백엔드는 `/projects/{id}/logs` 로 이전됨  │
+│    · POST /ingest 배치 전송 · 오프셋 영속화 (~/.netscope-agent/)                  │
+│    · 로그 회전(truncation) 자동 감지                                              │
 └──────────────────────────────┬──────────────────────────────────────────────────┘
                                │ HTTP JSON  (+headers)
                                ▼
@@ -84,30 +93,25 @@
 │                                                                                 │
 │   ┌────────────────────────────────────────────────────────────────────────┐    │
 │   │  /projects/{project_id}/...   (tenant 자동 필터링)                      │    │
-│   │                                                                        │    │
-│   │  • POST   /logs              ← 수동 단건 입력 (LogDomainService)        │    │
-│   │  • GET    /logs              ← 최근 200건 (tenant+project filter)       │    │
-│   │  • POST   /analysis          ← log_ids → AnalysisEngine.analyze()      │    │
-│   │  • GET    /reports           ← AnalysisResult 목록 (날짜 필터)           │    │
-│   │  • GET    /reports/weekly    ← 7일 GPT 요약 + 다음주 리스크 예측         │    │
-│   │  • GET    /reports/trend/confidence  ← 일자별 confidence 추이            │    │
+│   │  • POST/GET /logs · POST /analysis · GET /reports/*                   │    │
 │   └────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                 │
 │   ┌──────────────────────────────────┐  ┌─────────────────────────────────┐     │
-│   │  POST /ingest                    │  │  POST /analysis/test            │     │
-│   │  (Agent / fluent-bit / 외부)      │  │  (DB 없이 룰만 돌리는 검증용)     │     │
-│   │  X-Tenant-ID / X-Project-ID      │  └─────────────────────────────────┘     │
-│   │  → RuleEngine.run_raw            │                                          │
-│   │  → SignalAggregator              │                                          │
-│   │  → persist_analysis (raw 보관 X) │                                          │
+│   │  POST /ingest  (Agent hot path)  │  │  /patterns (L1~L3 패턴 관리)    │     │
+│   │  → 구조화 파서 → RuleEngine      │  │  list/label/dismiss/feedback     │     │
+│   │  → PatternMiner (L0)             │  └─────────────────────────────────┘     │
+│   │  → SignalAggregator → persist    │                                          │
+│   └──────────────────────────────────┘  ┌─────────────────────────────────┐     │
+│   ┌──────────────────────────────────┐  │  GET /health (DB ping)          │     │
+│   │  GET /projects/overview          │  │  GET /projects/overview          │     │
+│   │  (24h 로그수/에러율/최근분석)       │  └─────────────────────────────────┘     │
 │   └──────────────────────────────────┘                                          │
 │                                                                                 │
 │   ┌─── AnalysisEngine.analyze() ────────────────────────────────────────┐       │
-│   │  ① RuleEngine (R001~R018)                                          │       │
-│   │  ② (옵션) GPTAnalyzer  ← strategy=gpt 이고 OPENAI_API_KEY 있을 때    │       │
-│   │  ③ severity = HIGH(≥0.75) | MEDIUM(≥0.45) | LOW(<0.45)              │       │
-│   │  ④ 안정성 보호: causes/actions 비면 fallback 문구                     │       │
-│   │  ⑤ AnalysisResult DB 저장 (tenant+project 강제)                      │       │
+│   │  ① RuleEngine v3.0 (R001~R024)                                     │       │
+│   │  ② PatternMatcher (L2 — 학습 패턴 매칭)                             │       │
+│   │  ③ (옵션) GPTAnalyzer  ← strategy=gpt 이고 OPENAI_API_KEY 있을 때    │       │
+│   │  ④ severity 자동 매핑 (CRITICAL/HIGH/MEDIUM/LOW)                     │       │
+│   │  ⑤ AnalysisResult DB 저장 + matched_patterns 포함                    │       │
 │   │  ⑥ 주간 리포트 자동 트리거: 최근 7일 ≥5건 + 미존재 → 생성              │       │
 │   └────────────────────────────────────────────────────────────────────┘       │
 └───────────────────────────────┬─────────────────────────────────────────────────┘
@@ -117,19 +121,7 @@
 │  🐘  POSTGRES 16   (docker-compose · postgres_data volume)                       │
 │      tenants · users · refresh_tokens · projects                                │
 │      logs · analysis_results · weekly_reports                                   │
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                ▲
-                                │  axios (withCredentials, silent refresh)
-                                │
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│  🖼️  FRONTEND   (Next.js 16 · React 19 · Tailwind 4 · zustand · port 3000)       │
-│                                                                                 │
-│   /auth/{login, register}  →  서버 set-cookie (httpOnly, sameSite=lax)           │
-│   /projects                →  tenant 별 프로젝트 카드                            │
-│   /projects/[id]           →  프로젝트 상세 + NewLogModal + WeeklyReportCard      │
-│   /projects/[id]/reports   →  분석 리포트 목록                                   │
-│                                                                                 │
-│   lib/api/client.ts  ← axios interceptor: 401 시 /auth/refresh 자동 재시도        │
+│      patterns · pattern_feedback  ← L0~L4                                       │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -155,21 +147,6 @@ Client                  Frontend (axios)             Backend                 Pos
   │                          │◀─────────────────────────┤                       │
   │  302 → /projects         │                          │                       │
   │◀─────────────────────────┤                          │                       │
-  │                          │                          │                       │
-  │  GET /projects/{id}/...  │                          │                       │
-  ├─────────────────────────▶│                          │                       │
-  │                          │  Cookie: access_token    │                       │
-  │                          ├─────────────────────────▶│                       │
-  │                          │                          │ get_current_context   │
-  │                          │                          │  {user_id, tenant_id} │
-  │                          │  401 (expired)           │                       │
-  │                          │◀─────────────────────────┤                       │
-  │                          │  POST /auth/refresh ─────┼─▶  rotation logic     │
-  │                          │  Set-Cookie: 새 토큰 2종   │   + reuse 탐지        │
-  │                          │◀─────────────────────────┤                       │
-  │                          │  원 요청 재시도            │                       │
-  │                          ├─────────────────────────▶│                       │
-  │                          │◀─────────────────────────┤                       │
 ```
 
 ### 분석 파이프라인 (이벤트 흐름)
@@ -180,16 +157,17 @@ Client                  Frontend (axios)             Backend                 Pos
      ▼                                ▼
  ┌────────────┐  matches   ┌─────────────────┐
  │ RuleEngine │ ─────────▶ │   aggregate()    │
- │ R001..R018 │            │  base + bonus   │
+ │ R001..R024 │            │  base + bonus   │
  └────────────┘            └────────┬────────┘
                                     │
                 ┌───────────────────┼───────────────────┐
                 │                   │                   │
                 ▼                   ▼                   ▼
         ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐
-        │ strategy=gpt?│  │ severity     │  │ matched_rules[] │
-        │  → GPTAnalyzer│  │ HIGH/MED/LOW │  │ signals[]       │
+        │ PatternMatcher│  │ severity     │  │ matched_rules[] │
+        │ (L2 카탈로그) │  │ CRIT/HI/M/L │  │ matched_patterns│
         └──────┬───────┘  └──────┬───────┘  └────────┬────────┘
+               │                 │                   │
                └─────────────────┴───────────────────┘
                                  │
                                  ▼
@@ -213,32 +191,38 @@ Client                  Frontend (axios)             Backend                 Pos
 
 ---
 
-## 🧠 Rule Engine (R001~R018, v2.0)
+## 🧠 Rule Engine v3.0 (R001~R024)
 
-> 룰셋 버전 `v2.0`. 상세 정본은 [`docs/RULE_ENGINE.md`](./docs/RULE_ENGINE.md).
+> 룰셋 버전 `v3.0`. 상세 정본은 [`docs/RULE_ENGINE.md`](./docs/RULE_ENGINE.md).
 
 ### 룰 카탈로그
 
-| 룰 ID | 점수 | 제목 | 트리거 키워드/조건 |
-| :---: | :---: | --- | --- |
-| **R001** | 0.35 | Timeout 발생 | `timeout`, `timed out`, `ETIMEDOUT` |
-| **R002** | 0.35 | Connection 실패 | `connection refused`, `ECONNREFUSED`, `reset by peer` |
-| **R003** | 0.25 | DNS / Name Resolution | `ENOTFOUND`, `NXDOMAIN`, `DNS`, `name resolution` |
-| **R004** | 0.25 | 5xx 응답 | `5\d\d`, `502`, `503`, `504` |
-| **R005** | 0.20 | ERROR 레벨 존재 | `level == ERROR` |
-| **R006** | 0.20 | 동일 source ≥ 5회 | `_count_by_source ≥ 5` |
-| **R007** | 0.40 | Out of Memory | `OOM`, `OutOfMemoryError`, `MemoryError` |
-| **R008** | 0.30 | DB 관련 오류 | `database`/`SQL`/`pool`/`deadlock` + ERROR/WARN |
-| **R009** | 0.35 | 디스크 용량 부족 | `disk full`, `ENOSPC`, `no space left` |
-| **R010** | 0.25 | CPU 과부하 | `CPU`, `high load`, `throttl` |
-| **R011** | 0.25 | 인증/인가 실패 | auth 키워드 + 4xx 동시 |
-| **R012** | 0.20 | Rate Limit 초과 | `rate limit`, `too many requests`, `quota` |
-| **R013** | 0.45 | 애플리케이션 크래시 | `crash`, `panic`, `segfault`, `fatal` |
-| **R014** | 0.30 | 서비스 재시작 | `restart`, `reboot`, `killed`, `terminated` |
-| **R015** | 0.30 | SSL/TLS 인증서 문제 | `SSL`/`TLS`/`certificate` + ERROR/WARN |
-| **R016** | 0.25 | 권한 거부 | `permission denied`, `EACCES`, `access denied` |
-| **R017** | 0.15 | 4xx 반복 | `4\d\d` 가 ≥ 3회 |
-| **R018** | 0.15 | WARN ≥ 3회 | `level == WARN` 가 ≥ 3건 |
+| 룰 ID | 점수 | 제목 | 트리거 키워드/조건 | 유형 |
+| :---: | :---: | --- | --- | --- |
+| **R001** | 0.35 | Timeout 발생 | `timeout`, `timed out`, `ETIMEDOUT` | 키워드 |
+| **R002** | 0.35 | Connection 실패 | `connection refused`, `ECONNREFUSED`, `reset by peer` | 키워드 |
+| **R003** | 0.25 | DNS / Name Resolution | `ENOTFOUND`, `NXDOMAIN`, `DNS` | 키워드 |
+| **R004** | 0.25 | 5xx 응답 | `5\d\d`, `502`, `503`, `504` | 키워드 |
+| **R005** | 0.20 | ERROR 레벨 존재 | `level == ERROR` | 레벨 |
+| **R006** | 0.20 | 동일 source ≥ 5회 | `_count_by_source ≥ 5` | 통계 |
+| **R007** | 0.40 | Out of Memory | `OOM`, `OutOfMemoryError`, `MemoryError` | 키워드 |
+| **R008** | 0.30 | DB 관련 오류 | `database`/`SQL`/`pool`/`deadlock` + ERROR/WARN | 키워드 |
+| **R009** | 0.35 | 디스크 용량 부족 | `disk full`, `ENOSPC`, `no space left` | 키워드 |
+| **R010** | 0.25 | CPU 과부하 | `CPU`, `high load`, `throttl` | 키워드 |
+| **R011** | 0.25 | 인증/인가 실패 | auth 키워드 + 4xx 동시 | 복합 |
+| **R012** | 0.20 | Rate Limit 초과 | `rate limit`, `too many requests`, `quota` | 키워드 |
+| **R013** | 0.45 | 애플리케이션 크래시 | `crash`, `panic`, `segfault`, `fatal` | 키워드 |
+| **R014** | 0.30 | 서비스 재시작 | `restart`, `reboot`, `killed`, `terminated` | 키워드 |
+| **R015** | 0.30 | SSL/TLS 인증서 문제 | `SSL`/`TLS`/`certificate` + ERROR/WARN | 복합 |
+| **R016** | 0.25 | 권한 거부 | `permission denied`, `EACCES` | 키워드 |
+| **R017** | 0.15 | 4xx 반복 | `4\d\d` 가 ≥ 3회 | 통계 |
+| **R018** | 0.15 | WARN ≥ 3회 | `level == WARN` 가 ≥ 3건 | 레벨 |
+| **R019** | 0.40 | 에러 버스트 | 1분 내 ERROR 5건+ | 시간윈도우 |
+| **R020** | 0.45 | 타임아웃→크래시 연쇄 | timeout 후 5분 내 crash/panic | 순서패턴 |
+| **R021** | 0.35 | 높은 에러율 | ERROR/전체 ≥ 50% (5건+) | 통계 |
+| **R022** | 0.35 | 다중 source 동시 에러 | 3개+ source에서 ERROR | 상관관계 |
+| **R023** | 0.25 | 로그 급증 스파이크 | 최근 1분 발생률이 평균 3배+ | 시간윈도우 |
+| **R024** | 0.40 | 연결실패→재시작 연쇄 | conn refused 후 5분 내 restart/killed | 순서패턴 |
 
 ### Confidence 산출식
 
@@ -246,41 +230,71 @@ Client                  Frontend (axios)             Backend                 Pos
 ┌──────────────────────────────────────────────────────────────────────┐
 │   base       =  Σ rule.score                                        │
 │                                                                      │
-│   evidence   =  count ≥ 5 → +0.20   ·  count == 4 → +0.15           │
+│   evidence   =  count ≥ 5 → +0.20  ·  count == 4 → +0.15           │
 │                 count == 3 → +0.10  ·  count == 2 → +0.05           │
 │                                                                      │
-│   interaction = R001+R004 → +0.15   (timeout × 5xx)                 │
-│                 R001+R005 → +0.10   (timeout × ERROR)               │
-│                 R002+R003 → +0.10   (connection × DNS)              │
-│                 R007+R013 → +0.15   (OOM × crash)                   │
-│                 R008+R001 → +0.12   (DB × timeout)                  │
-│                 R009+R013 → +0.12   (disk × crash)                  │
-│                 R010+R001 → +0.10   (CPU × timeout)                 │
+│   interaction (13개 조합)                                             │
+│     R001+R004 → +0.15   (timeout × 5xx)                             │
+│     R001+R005 → +0.10   (timeout × ERROR)                           │
+│     R002+R003 → +0.10   (connection × DNS)                          │
+│     R007+R013 → +0.15   (OOM × crash)                               │
+│     R008+R001 → +0.12   (DB × timeout)                              │
+│     R009+R013 → +0.12   (disk × crash)                              │
+│     R010+R001 → +0.10   (CPU × timeout)                             │
+│     R019+R022 → +0.15   (에러 버스트 × 다중 source)                  │
+│     R019+R021 → +0.12   (에러 버스트 × 높은 에러율)                   │
+│     R020+R007 → +0.15   (타임아웃→크래시 × OOM)                      │
+│     R024+R022 → +0.15   (연결→재시작 × 다중 source)                  │
+│     R021+R008 → +0.12   (높은 에러율 × DB)                           │
+│     R023+R019 → +0.10   (급증 × 버스트)                              │
 │                                                                      │
-│   confidence = min(base + evidence + interaction, 1.0)              │
+│   pattern    = Σ matched_pattern.score  (L2 학습 패턴 점수)           │
 │                                                                      │
-│   severity =  HIGH   (≥ 0.75)   ████████████░  ▶ 적색               │
-│               MEDIUM (≥ 0.45)   ███████░░░░░░  ▶ 황색               │
-│               LOW    (< 0.45)   ████░░░░░░░░░  ▶ 청색               │
+│   confidence = min(base + evidence + interaction + pattern, 1.0)    │
+│                                                                      │
+│   severity =  CRITICAL (치명적 조합 or ≥0.85 & 5개+ 룰)              │
+│               HIGH     (≥ 0.75 or 크래시/OOM 단독)                    │
+│               MEDIUM   (≥ 0.45)                                      │
+│               LOW      (< 0.45)                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### 설명 가능성 (Explainability)
+**검증 자산** — `backend/src/analysis/validation/test_cases.py`(60개 시나리오) · `distribution.py`(분포 리포트) · `tests/test_rule_engine.py`(20개 테스트).
 
-응답의 `matched_rules` 필드는 **사람이 읽을 수 있는 근거 문자열** 로 직렬화:
+---
+
+## 🔬 Rule Learning (L0~L4)
+
+> 상세 기획 → [`docs/RULE_LEARNING.md`](./docs/RULE_LEARNING.md)
+
+### 파이프라인 요약
 
 ```
-[
-  "R001 Timeout 발생 (+0.35) - 로그 메시지에 timeout / timed out / ETIMEDOUT 키워드가 포함됨",
-  "R004 5xx 응답 감지 (+0.25) - 로그 메시지에 5xx(502/503/504) 상태 코드 패턴이 포함됨",
-  "R005 ERROR 레벨 로그 존재 (+0.20) - level=ERROR 로 기록된 로그가 하나 이상 존재함"
-]
+Raw Log  →  Variable Masking  →  Drain Tree  →  Catalog Upsert (DB)
+            (UUID/IP/TS/PATH)     (prefix tree,   (tenant별, 10K 한도)
+                                   sim≥0.4)
+
+분석 시:  PatternMatcher  →  카탈로그 조회  →  matched_patterns 응답 포함
+피드백:   confirm/dismiss/wrong  →  score_adjust 보정  →  자동 승격/강등
 ```
 
-GPT 보강 시에도 룰 결과가 **baseline** — `gpt_analyzer.py` 의 system prompt 가
-`"The rule-engine analysis is the baseline. Do NOT contradict rules without clear justification."` 로 고정.
+### 패턴 상태 머신
 
-**검증 자산** — `backend/src/analysis/validation/test_cases.py`(60개 시나리오) · `distribution.py`(분포/미스매치 리포트).
+```
+candidate  ──(label)──▶  labeled  ──(5+ confirm, <20% dismiss)──▶  promoted
+    │                       │                                          │
+    └──(dismiss)──▶  dismissed  ◀──(dismiss 비율 초과)─────────────────┘
+```
+
+### API
+
+```
+GET    /patterns              패턴 목록 (status 필터, 페이지네이션)
+GET    /patterns/{id}         패턴 상세
+PATCH  /patterns/{id}/label   라벨링 (label, causes, actions, score_seed ≤ 0.30)
+PATCH  /patterns/{id}/dismiss 무시
+POST   /patterns/{id}/feedback  피드백 (confirm/dismiss/wrong → L3 승격 + L4 가중치)
+```
 
 ---
 
@@ -296,31 +310,36 @@ GPT 보강 시에도 룰 결과가 **baseline** — `gpt_analyzer.py` 의 system
 └── POST   /auth/logout            현 refresh revoke + 쿠키 제거
 
 🔓 SEMI-PUBLIC  (헤더 기반 — 에이전트/외부)
-├── POST   /ingest                 X-Tenant-ID, X-Project-ID 필수, raw 보관 X
-└── POST   /analysis/test          DB 없이 룰만 실행 (개발/검증용)
+├── POST   /ingest                 X-Tenant-ID, X-Project-ID 필수, 구조화 파서 + 패턴 마이닝
+├── POST   /analysis/test          DB 없이 룰만 실행 (개발/검증용)
+└── GET    /health                 DB ping + liveness check
 
 🔐 PROTECTED  (cookie:access_token 필요, tenant 자동 적용)
 ├── /projects
 │   ├── GET    .                   내 tenant 의 프로젝트 목록
 │   ├── POST   .                   { name } → ProjectResponse
+│   ├── GET    /overview           24h 로그 수 + 에러율 + 최근 분석
 │   └── DELETE /{project_id}
 │
-└── /projects/{project_id}
-    ├── /logs
-    │   ├── POST   .               { source, message, level, timestamp? }
-    │   ├── GET    .               최근 200건 (timestamp desc)
-    │   └── DELETE /{log_id}
-    ├── /analysis
-    │   └── POST   .               { log_ids[], strategy } → AnalysisResultDTO + DB 저장
-    └── /reports
-        ├── GET    .               목록 (start_date/end_date/limit)
-        ├── GET    /{analysis_id}  단건
-        ├── GET    /weekly         최근 7일 GPT 요약 + 다음주 리스크 (캐시됨)
-        └── GET    /trend/confidence  일자별 평균 confidence + report_count
-
-🚧 STUB / MISSING
-├── GET    /projects/overview      ← 프론트 lib/api/overview.ts 호출 — 백엔드 없음 (404)
-└── GET    /health                 ← health.py 비어있음, main.py 미등록
+├── /projects/{project_id}
+│   ├── /logs
+│   │   ├── POST   .               { source, message, level, timestamp? }
+│   │   ├── GET    .               최근 200건 (timestamp desc)
+│   │   └── DELETE /{log_id}
+│   ├── /analysis
+│   │   └── POST   .               { log_ids[], strategy } → AnalysisResultDTO + matched_patterns
+│   └── /reports
+│       ├── GET    .               목록 (start_date/end_date/limit)
+│       ├── GET    /{analysis_id}  단건
+│       ├── GET    /weekly         최근 7일 GPT 요약 + 다음주 리스크
+│       └── GET    /trend/confidence  일자별 평균 confidence + report_count
+│
+└── /patterns  (L1~L3 패턴 관리)
+    ├── GET    .                   패턴 목록 (status 필터, 페이지네이션)
+    ├── GET    /{pattern_id}       패턴 상세
+    ├── PATCH  /{pattern_id}/label   라벨링
+    ├── PATCH  /{pattern_id}/dismiss 무시
+    └── POST   /{pattern_id}/feedback  피드백 (confirm/dismiss/wrong)
 ```
 
 ### 대표 페이로드
@@ -328,39 +347,30 @@ GPT 보강 시에도 룰 결과가 **baseline** — `gpt_analyzer.py` 의 system
 **`POST /projects/{id}/analysis`**
 ```json
 // Request
-{ "log_ids": ["uuid-1", "uuid-2"], "strategy": "rule" }   // rule | gpt (ai/hybrid 미구현)
+{ "log_ids": ["uuid-1", "uuid-2"], "strategy": "rule" }
 
-// Response (저장된 AnalysisResult)
+// Response
 {
-  "summary": "룰 기반 분석 결과, 다음과 같은 이상 징후가 감지되었습니다: Timeout 발생, 5xx 응답 감지.",
+  "summary": "룰 기반 분석 결과, 다음과 같은 이상 징후가 감지되었습니다: ...",
   "severity": "HIGH",
   "confidence": 0.85,
   "suspected_causes": ["Upstream 응답 지연", "프록시/게이트웨이 오류"],
   "recommended_actions": ["timeout 설정값 확인", "Upstream 헬스 점검"],
-  "matched_rules": ["R001 Timeout 발생 (+0.35) - ...", "R004 5xx ... "],
+  "matched_rules": ["R001 Timeout 발생 (+0.35) - ...", "R004 5xx ..."],
+  "matched_patterns": [
+    {
+      "pattern_id": "a1b2c3d4e5f6",
+      "label": "auth-token-expiry",
+      "template": "Auth token expired (<UUID>)",
+      "score": 0.25,
+      "status": "promoted",
+      "history": { "total_count": 47, "avg_severity": "HIGH", "confirm_count": 8 }
+    }
+  ],
   "strategy_used": "rule",
-  "received_at": "2026-05-29T10:11:12Z"
+  "received_at": "2026-05-30T10:11:12Z"
 }
 ```
-
-**`POST /ingest`** (Agent 라인 단위 hot path — raw 로그 비저장)
-```http
-POST /ingest
-X-Tenant-ID: <uuid>
-X-Project-ID: <uuid>
-Content-Type: application/json
-
-{ "logs": ["[ERROR] timeout", "[ERROR] 502 Bad Gateway"] }
-```
-
-### 에러 컨벤션
-
-| 상태 | 케이스 |
-| :---: | --- |
-| 400 | `analysis.log_ids` 일부가 tenant 또는 project 경계 밖 |
-| 401 | `NO_ACCESS_TOKEN`, `Invalid or expired token`, refresh 재사용 탐지 등 |
-| 404 | project / log / report 단건 미존재 |
-| 409 | `EMAIL_ALREADY_EXISTS` |
 
 ---
 
@@ -409,10 +419,26 @@ Content-Type: application/json
                    │ period_start/end    │
                    │ report_count        │
                    │ summary (GPT)       │
-                   │ risk_level          │
-                   │ risk_reason         │
+                   │ risk_level/reason   │
                    │ created_at          │
                    └─────────────────────┘
+
+  ┌──────────────────────────┐    ┌──────────────────────────┐
+  │  patterns (L0~L4)        │    │  pattern_feedback (L3~L4) │
+  │ id (PK, sha1 12자)       │    │ id (PK, auto)             │
+  │ tenant_id                │    │ tenant_id                 │
+  │ template, sample         │    │ pattern_id (FK)           │
+  │ total_count              │    │ analysis_id               │
+  │ first_seen, last_seen    │    │ action (confirm/dismiss)  │
+  │ sources JSONB            │    │ user_id                   │
+  │ level_dist JSONB         │    │ severity_shown            │
+  │ hourly_dist INT[]        │    │ created_at                │
+  │ status, label, display   │    └──────────────────────────┘
+  │ causes TEXT[], actions   │
+  │ score_seed, score_adjust │
+  │ confirm/dismiss_count    │
+  │ created_at, updated_at   │
+  └──────────────────────────┘
 ```
 
 ### Enum 정합성
@@ -420,49 +446,8 @@ Content-Type: application/json
 | Enum | Backend | Frontend | Drift |
 | --- | --- | --- | --- |
 | `LogLevel` | DEBUG / INFO / WARN / ERROR | 동일 | ✅ |
-| `SeverityLevel` | LOW / MEDIUM / HIGH / **CRITICAL** | LOW / MEDIUM / HIGH | ⚠️ CRITICAL 누락 (엔진 미사용이라 당장은 무해) |
-| `AnalysisStrategy` | rule / ai / hybrid / gpt | rule / gpt | ⚠️ ai/hybrid 백엔드도 미구현 |
-
-> ❌ **Alembic 미사용**. `backend/src/db/init.py` 의 `Base.metadata.create_all()` 만 사용.
-> Seed 스크립트의 `--reset` 옵션이 `drop_all + create_all` 로 해결. 운영 마이그레이션 전략 부재.
-
----
-
-## 🛡️ 인증 / 세션
-
-| 항목 | 값 |
-| --- | --- |
-| 알고리즘 | HS256 (`SECRET_KEY` env) |
-| Access TTL | 60 min (`ACCESS_TOKEN_EXPIRE_MINUTES`) |
-| Refresh TTL | 14 days (`REFRESH_TOKEN_EXPIRE_DAYS`) |
-| Access 쿠키 | `access_token` · httpOnly · path=`/` · max-age=60min |
-| Refresh 쿠키 | `refresh_token` · httpOnly · **path=`/auth`** · max-age=14d |
-| Secure / SameSite | `COOKIE_SECURE`, `COOKIE_SAMESITE` (기본 false / lax — 운영 시 변경 필요) |
-| Password Hash | **argon2** (`passlib`) |
-| Refresh 저장 | `refresh_tokens` 테이블 (id=jti, token_hash, expires_at, revoked) |
-| Rotation | refresh 사용 시 즉시 revoke + 새 토큰 발급 |
-| **Reuse Detection** | revoked 된 refresh 재사용 시 → 해당 user 전체 세션 강제 revoke |
-| 토큰 위/변조 | refresh 의 token_hash 불일치 시 → 전체 세션 강제 revoke |
-| 프론트 보관 | **없음** — 쿠키만 사용 (zustand 는 hydrated 플래그만) |
-| 401 처리 | axios interceptor 가 `/auth/refresh` 자동 호출 → 원 요청 재시도, 실패 시 `/auth/login` 이동 |
-
----
-
-## 🖼️ Frontend (라우트 & 상태)
-
-```
-/                      cookie:access_token 있으면 → /projects, 없으면 → /auth/login
-/auth/login            로그인 폼 → POST /auth/login → 서버가 쿠키 set
-/auth/register         가입 폼   → POST /auth/register
-/projects              내 tenant 프로젝트 카드 그리드
-/projects/new          새 프로젝트 생성
-/projects/[id]         프로젝트 상세
-   ├─ NewLogModal      수동 로그 입력 (POST /projects/{id}/logs)
-   └─ WeeklyReportCard GET /projects/{id}/reports/weekly
-/projects/[id]/reports 분석 리포트 목록
-```
-
-> 🎨 다크 테마 고정 (`zinc-950` / `zinc-100`). Tailwind 4. 디자인 시스템은 [`docs/DESIGN_SYSTEM.md`](./docs/DESIGN_SYSTEM.md).
+| `SeverityLevel` | LOW / MEDIUM / HIGH / CRITICAL | LOW / MEDIUM / HIGH / CRITICAL | ✅ |
+| `AnalysisStrategy` | rule / ai / hybrid / gpt | rule / gpt / ai / hybrid | ✅ |
 
 ---
 
@@ -477,14 +462,15 @@ python netscope-agent.py --path /var/log/app.log \
 
 | 항목 | 값 |
 | --- | --- |
-| 의존성 | stdlib + `requests` (배포 친화 유지) |
+| 의존성 | stdlib + `requests` |
+| API | `POST /ingest` (배치 전송, `{logs: [...]}`) |
 | Tail 주기 | 1s 폴링 (`os.path.getsize` 기반) |
-| 정규화 | BOM(`﻿`), `\r`, `\x00`, `[\x00-\x1F\x7F-\x9F]` 제거 |
+| 정규화 | BOM, 제어문자 제거 |
 | Level 추론 | 본문에서 `ERROR\|WARN\|INFO` 첫 매치 → 없으면 `DEBUG` |
 | Agent-side 필터 | level∈{ERROR,WARN} OR `TIMEOUT`/`TIMED OUT` OR HTTP 5xx |
 | 헤더 | `X-Tenant-ID`, `X-Project-ID` 부착 |
-| **⚠️ 알려진 깨짐** | `API_URL = http://127.0.0.1:8000/logs` — 백엔드는 `/projects/{id}/logs` 로 이전 + 인증 필요. **`/ingest` 전환 + 호스트 환경변수화 필요.** |
-| Resume | 미저장 — EOF 부터 시작 (재시작 시 라인 누락 가능) |
+| Resume | `~/.netscope-agent/` 에 바이트 오프셋 영속화 (재시작 시 이어읽기) |
+| 로그 회전 | 파일 truncation 자동 감지 → 오프셋 리셋 |
 
 ---
 
@@ -493,137 +479,55 @@ python netscope-agent.py --path /var/log/app.log \
 ### Docker Compose (권장)
 
 ```bash
-# backend/.env.docker 에 SECRET_KEY(필수)·OPENAI_API_KEY(선택) 채운 뒤
 docker compose up -d --build
-# Postgres   → localhost:5432  (volume: postgres_data)
+# Postgres   → localhost:5432
 # Backend    → http://localhost:8000  (Swagger: /docs)
-# Frontend   → http://localhost:3000  (자동으로 /auth/login 으로 리다이렉트)
+# Frontend   → http://localhost:3000
 ```
 
-종료/초기화
+### 유틸리티 명령어
 
 ```bash
-docker compose down       # 컨테이너만 종료 (데이터 유지)
-docker compose down -v    # 볼륨까지 초기화 (DB 완전 wipe)
+# 데모 시드
+docker compose exec backend python -m scripts.seed --reset
+
+# 7일 리텐션 (dry-run → 실행)
+docker compose exec backend python -m scripts.retention --dry-run
+docker compose exec backend python -m scripts.retention
+
+# 테스트 (43개)
+cd backend && .venv/Scripts/python -m pytest tests/ -v
+
+# 룰 분포 확인
+docker compose exec backend python -m src.analysis.validation.distribution
 ```
-
-### 로컬 (수동)
-
-```powershell
-# Backend
-cd backend
-pip install -r requirements.txt
-$env:DATABASE_URL = "postgresql+psycopg://netscope:netscope_dev_pw@localhost:5432/netscope"
-$env:SECRET_KEY = "dev-secret"
-$env:OPENAI_API_KEY = "sk-..."   # 선택
-uvicorn src.main:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm install
-$env:NEXT_PUBLIC_API_BASE_URL = "http://localhost:8000"
-npm run dev
-```
-
-### Postgres — dev credentials
-
-| Field    | Value              |
-| -------- | ------------------ |
-| Host     | `localhost`        |
-| Port     | `5432`             |
-| Database | `netscope`         |
-| User     | `netscope`         |
-| Password | `netscope_dev_pw`  |
-
-```bash
-docker exec -it netscope-postgres psql -U netscope -d netscope
-```
-
-> ⚠️ Dev only. `docker-compose.yml` 에 평문 정의 — 운영 환경에서는 절대 그대로 쓰지 말 것.
 
 ### 데모 계정 (시드 후 사용 가능)
 
-각 계정은 **자기 tenant 의 프로젝트/로그/분석 결과만** 볼 수 있습니다 (멀티테넌시 격리).
-
-| Email             | Password    | Tenant          | Projects                          | 시나리오                          |
-| ----------------- | ----------- | --------------- | --------------------------------- | --------------------------------- |
-| `alice@demo.io`   | `Demo1234!` | Alice Co.       | `gateway-prod`, `auth-service`    | gateway timeout + auth JWT 에러   |
-| `bob@demo.io`     | `Demo1234!` | Bob Industries  | `billing-api`, `worker-queue`     | DB connection 거부 + 워커 혼합 오류 |
-| `carol@demo.io`   | `Demo1234!` | Carol Labs      | `edge-cdn`, `checkout-flow`       | DNS 실패 + checkout 5xx           |
-
-각 계정은 **프로젝트 2개씩, 프로젝트당 18개의 로그, 1~2개의 사전 분석 결과** 를 가집니다.
-
-```bash
-# 첫 실행 또는 데이터 wipe 후 재시드 (drop_all + create_all)
-docker exec netscope-backend python -m scripts.seed --reset
-
-# 이미 테이블이 맞으면 기존 데모 계정은 건너뜀 (idempotent)
-docker exec netscope-backend python -m scripts.seed
-```
-
----
-
-## 🧭 제품 설계 노트 (MVP)
-
-운영 로그를 **프로젝트 단위로 수집·분석**하고, Rule 기반 + GPT 보강으로 **운영 리스크를 빠르게 파악**한다.
-
-```
-인증 흐름        첫 화면 = 로그인/회원가입 → Tenant ID 기준 진입 → 모든 데이터 Tenant 단위 분리
-좌측 Nav         Test Log · Project Log 두 메뉴만 (MVP 단계 메뉴 확장 지양)
-Project          실제 운영 로그 저장 단위 = 분석 결과 + 주간 리포트 기준 단위
-Test Log         로그 직접 입력 → 즉시 분석 · DB 저장 X · 프로젝트 무관 (룰/GPT 품질 검증용)
-Project Log      수동 입력(New Log) + (향후) Agent/API 자동 수집
-```
-
-### 로그 저장 정책 — "의미 있는 로그만 남긴다"
-
-```
-✅ 저장      Rule 매칭 로그 · GPT 분석 대상 로그
-❌ 미저장    단순 원본 로그 전체 · 의미 없는 반복 로그
-```
-
-### 분석 결과 (Report) 구성
-
-`Summary` · `Severity(LOW/MEDIUM/HIGH)` · `Confidence` · `Cause` · `Action` · `Evidence(Matched Rules)`
-— 각 결과는 리포트 단위로 저장·조회 가능.
-
-### 주간 운영 리포트
-
-최근 7일 분석 결과 집계 → Rule + GPT 자동 요약. 포함: 분석 리포트 수 · 주간 장애 패턴 요약 · 다음 주 리스크 예측(낮음/보통/높음 + 근거). 분석 실행 시 조건부 자동 생성, 동일 기간 중복 생성 방지.
-
-### 향후 확장
-
-로그 자동 수집 Agent · 알림(Slack/Webhook) · 리스크 트렌드 시각화 · 프로젝트별 권한 관리 · 분석 Rule UI 관리.
-
-> **"로그를 쌓는 서비스가 아니라, 운영 판단에 필요한 '의미 있는 로그'만 남기는 분석 서비스"**
+| Email | Password | Tenant | Projects |
+| --- | --- | --- | --- |
+| `alice@demo.io` | `Demo1234!` | Alice Co. | `gateway-prod`, `auth-service` |
+| `bob@demo.io` | `Demo1234!` | Bob Industries | `billing-api`, `worker-queue` |
+| `carol@demo.io` | `Demo1234!` | Carol Labs | `edge-cdn`, `checkout-flow` |
 
 ---
 
 ## 🚨 알려진 갭 / 로드맵
 
 ```
-우선  영역                  상태   해결 액션
-────  ────────────────────  ────   ────────────────────────────
-P0    Agent ↔ /ingest 정합  🚧    URL→/ingest, 인증 정책 결정
-P0    /projects/overview     🚧    라우터 추가 or 프론트 제거
-P0    /health                ❌    health.py 본문 + 라우터 등록
-P0    테스트                  ❌    최소 auth+analysis 통합 테스트
-P0    GPT 모델명               🚧    `gpt-4.1-mini` 확인 후 정정
-P1    Alembic                ❌    도입 + initial revision
-P1    Frontend Severity 타입  ⚠️   CRITICAL 누락 → types/analysis.ts 갱신
-P1    Strategy 타입          ⚠️   ai/hybrid engine 분기 or enum 정리
-P1    CORS                   ⚠️   ALLOWED_ORIGINS 목록화
-P2    Agent Resume            ⚠️   파일 오프셋 저장
-P2    7일 윈도우 리텐션         ❌    cron / cleanup job
-P2    구조화 파서              ❌    JSON/syslog 파서
-P3    룰 학습 L0~L4          ❌    백그라운드 패턴 마이닝부터
+우선  영역                          상태   비고
+────  ────────────────────────────  ────   ────────────────────────
+🟡    프론트엔드 대시보드 완성         미완   분석 결과 시각화, 패턴 카드 등
+🟡    /patterns 프론트엔드 페이지     미착수  백엔드 API 완료, UI 미구현
+🟡    Agent 환경변수화               미착수  API_URL, OFFSET_DIR 설정 가능하게
+🟡    Alembic initial revision       미착수  DB 연결 후 autogenerate 필요
+🟡    통합 테스트 (auth+analysis)     미착수  e2e 테스트
+❌    L5 임베딩 기반 의미 유사도       장기   sentence-transformer + HDBSCAN
 ```
-
-전체 룰 학습 설계는 [`docs/RULE_LEARNING.md`](./docs/RULE_LEARNING.md) — Netscope-AI 의 핵심 차별점.
 
 ---
 
 ```
                         ─── netscope-ai · README.md ───
-                       last sync : 2026-05-29 (post auth/db merge)
+                       last sync : 2026-05-30
 ```

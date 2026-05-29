@@ -2,6 +2,7 @@
 
 > **개념 한 줄**: 사용자가 보낸 로그에서 *반복되는 모양(template)*을 자동 추출 → 사용자가 라벨링 → 충분히 자주 나오면 **룰 후보**로 승격 → 분석 시 "이건 P-AUTH-401 패턴, 과거 8회 봤음 (HIGH 평균)" 같이 출처를 함께 답한다.
 > **위치**: 본 문서는 정본. PM 로드맵 항목으로는 P2~P3 단계에 신규 편입(아래 §10).
+> **구현 상태**: L0~L4 구현 완료 (2026-05-30). 코드: `backend/src/learning/`, API: `/patterns`.
 
 ## 목차
 - [1. 왜 이게 필요한가](#1-왜-이게-필요한가)
@@ -23,7 +24,7 @@
 
 ## 1. 왜 이게 필요한가
 
-현재 룰 엔진(`RULE_ENGINE.md`)은 **18개의 도메인 일반 룰(R001~R018)**만 제공한다. 한계:
+현재 룰 엔진(`RULE_ENGINE.md`)은 **24개의 도메인 일반 룰(R001~R024, v3.0)**을 제공한다. 한계:
 
 - 사용자 환경 고유 로그 (예: `payment-gw 401 spike`, `inventory-svc kafka rebalance`)는 매칭 안 됨 → 결과가 항상 LOW.
 - 도메인 룰은 사람이 직접 정의해야 함 → 진입 장벽.
@@ -299,12 +300,12 @@ event: { analysis_id, pattern_id|rule_id, action: "confirm"|"dismiss"|"wrong",
 
 | Phase | 무엇 | PM 로드맵 매핑 |
 | --- | --- | --- |
-| **L0 (P0 직후)** | drain3 통합 + 카탈로그 적재 (사용자 알림 없이 백그라운드 수집만) | P1 후반 또는 **신규 P1-9** 로 편입 권장 |
-| **L1 (P2)** | 패턴 알림 카드 + 라벨링 UX + `/patterns` 페이지 | **신규 P2-9** |
-| **L2 (P2 후반)** | 분석 결과에 `matched_patterns` 노출 + 대시보드 통합 | P1-0 대시보드와 동기 |
-| **L3 (P3)** | 패턴 → 룰 자동 승격 + 피드백 기반 점수 보정 (단순 카운터) | **신규 P3-7** |
-| **L4 (P3 후반)** | logistic regression 기반 가중치 모델 | P3-1 (기존 자체 학습 항목)에 합쳐서 진행 |
-| **L5 (장기)** | 임베딩 기반 의미 유사도 (의미는 같지만 표현이 다른 로그 묶기) | P3+ |
+| **L0 (P0 직후)** | drain3 통합 + 카탈로그 적재 (백그라운드 수집) | ✅ **구현 완료** — `learning/drain.py`, `masking.py`, `catalog.py` |
+| **L1 (P2)** | 패턴 관리 API + 라벨링 | ✅ **구현 완료** — `api/v1/patterns.py` (list/label/dismiss) |
+| **L2 (P2 후반)** | 분석 결과에 `matched_patterns` 노출 | ✅ **구현 완료** — `learning/matcher.py`, `analysis.py` 통합 |
+| **L3 (P3)** | 패턴 → 룰 자동 승격 + 피드백 API | ✅ **구현 완료** — `learning/promotion.py`, feedback API |
+| **L4 (P3 후반)** | 온라인 score_adjust + 안전 가드 | ✅ **구현 완료** — `learning/weight_learner.py` |
+| **L5 (장기)** | 임베딩 기반 의미 유사도 (의미는 같지만 표현이 다른 로그 묶기) | ❌ 미착수 |
 
 > **본 항목은 PM_ENHANCEMENT_PLAN.md 에 신규 P1-9 / P2-9 / P3-7 로 추가됨**. 본 문서가 정본이므로 그쪽에선 본 문서로 링크.
 

@@ -6,7 +6,7 @@
 ## 목차
 - [1. 설계 철학](#1-설계-철학)
 - [2. 룰 정의 모델](#2-룰-정의-모델)
-- [3. 기본 룰 카탈로그 (R001~R018)](#3-기본-룰-카탈로그-r001r018)
+- [3. 기본 룰 카탈로그 (R001~R024)](#3-기본-룰-카탈로그-r001r024)
 - [4. 스코어링 공식](#4-스코어링-공식)
 - [5. severity 매핑](#5-severity-매핑)
 - [6. 설명가능성 출력](#6-설명가능성-출력)
@@ -58,30 +58,36 @@ logs ─► [Rule.predicate] ─► matched? ─► evidence_builder ─► (cau
 
 ---
 
-## 3. 기본 룰 카탈로그 (R001~R018)
+## 3. 기본 룰 카탈로그 (R001~R024)
 
-> 룰셋 버전 `v2.0`. 코드 정본: `rule_engine.py::default_rules()` (Rule 18개). 제목/근거 문자열은 한국어.
+> 룰셋 버전 `v3.0`. 코드 정본: `rule_engine.py::default_rules()` (Rule 24개). 제목/근거 문자열은 한국어.
 
-| 룰 ID | 점수 | 제목 | 트리거 키워드/조건 |
-| :---: | :---: | --- | --- |
-| **R001** | 0.35 | Timeout 발생 | `timeout`, `timed out`, `ETIMEDOUT` |
-| **R002** | 0.35 | Connection 실패 | `connection refused`, `ECONNREFUSED`, `reset by peer` |
-| **R003** | 0.25 | DNS / Name Resolution | `ENOTFOUND`, `NXDOMAIN`, `DNS`, `name resolution` |
-| **R004** | 0.25 | 5xx 응답 | `5\d\d`, `502`, `503`, `504` |
-| **R005** | 0.20 | ERROR 레벨 존재 | `level == ERROR` |
-| **R006** | 0.20 | 동일 source ≥ 5회 | `_count_by_source ≥ 5` |
-| **R007** | 0.40 | Out of Memory | `OOM`, `OutOfMemoryError`, `MemoryError` |
-| **R008** | 0.30 | DB 관련 오류 | `database`/`SQL`/`pool`/`deadlock` + ERROR/WARN |
-| **R009** | 0.35 | 디스크 용량 부족 | `disk full`, `ENOSPC`, `no space left` |
-| **R010** | 0.25 | CPU 과부하 | `CPU`, `high load`, `throttl` |
-| **R011** | 0.25 | 인증/인가 실패 | auth 키워드 + 4xx 동시 |
-| **R012** | 0.20 | Rate Limit 초과 | `rate limit`, `too many requests`, `quota` |
-| **R013** | 0.45 | 애플리케이션 크래시 | `crash`, `panic`, `segfault`, `fatal` |
-| **R014** | 0.30 | 서비스 재시작 | `restart`, `reboot`, `killed`, `terminated` |
-| **R015** | 0.30 | SSL/TLS 인증서 문제 | `SSL`/`TLS`/`certificate` + ERROR/WARN |
-| **R016** | 0.25 | 권한 거부 | `permission denied`, `EACCES`, `access denied` |
-| **R017** | 0.15 | 4xx 반복 | `4\d\d` 가 ≥ 3회 |
-| **R018** | 0.15 | WARN ≥ 3회 | `level == WARN` 가 ≥ 3건 |
+| 룰 ID | 점수 | 제목 | 트리거 키워드/조건 | 유형 |
+| :---: | :---: | --- | --- | --- |
+| **R001** | 0.35 | Timeout 발생 | `timeout`, `timed out`, `ETIMEDOUT` | 키워드 |
+| **R002** | 0.35 | Connection 실패 | `connection refused`, `ECONNREFUSED`, `reset by peer` | 키워드 |
+| **R003** | 0.25 | DNS / Name Resolution | `ENOTFOUND`, `NXDOMAIN`, `DNS`, `name resolution` | 키워드 |
+| **R004** | 0.25 | 5xx 응답 | `5\d\d`, `502`, `503`, `504` | 키워드 |
+| **R005** | 0.20 | ERROR 레벨 존재 | `level == ERROR` | 레벨 |
+| **R006** | 0.20 | 동일 source ≥ 5회 | `_count_by_source ≥ 5` | 통계 |
+| **R007** | 0.40 | Out of Memory | `OOM`, `OutOfMemoryError`, `MemoryError` | 키워드 |
+| **R008** | 0.30 | DB 관련 오류 | `database`/`SQL`/`pool`/`deadlock` + ERROR/WARN | 복합 |
+| **R009** | 0.35 | 디스크 용량 부족 | `disk full`, `ENOSPC`, `no space left` | 키워드 |
+| **R010** | 0.25 | CPU 과부하 | `CPU`, `high load`, `throttl` | 키워드 |
+| **R011** | 0.25 | 인증/인가 실패 | auth 키워드 + 4xx 동시 | 복합 |
+| **R012** | 0.20 | Rate Limit 초과 | `rate limit`, `too many requests`, `quota` | 키워드 |
+| **R013** | 0.45 | 애플리케이션 크래시 | `crash`, `panic`, `segfault`, `fatal` | 키워드 |
+| **R014** | 0.30 | 서비스 재시작 | `restart`, `reboot`, `killed`, `terminated` | 키워드 |
+| **R015** | 0.30 | SSL/TLS 인증서 문제 | `SSL`/`TLS`/`certificate` + ERROR/WARN | 복합 |
+| **R016** | 0.25 | 권한 거부 | `permission denied`, `EACCES`, `access denied` | 키워드 |
+| **R017** | 0.15 | 4xx 반복 | `4\d\d` 가 ≥ 3회 | 통계 |
+| **R018** | 0.15 | WARN ≥ 3회 | `level == WARN` 가 ≥ 3건 | 레벨 |
+| **R019** | 0.40 | 에러 버스트 (1분 내) | 1분 윈도우 내 ERROR 5건+ | 시간윈도우 |
+| **R020** | 0.45 | 타임아웃→크래시 연쇄 | timeout 후 5분 내 crash/panic | 순서패턴 |
+| **R021** | 0.35 | 높은 에러율 | ERROR/전체 ≥ 50% (5건+) | 통계 |
+| **R022** | 0.35 | 다중 source 동시 에러 | 3개+ source에서 ERROR | 상관관계 |
+| **R023** | 0.25 | 로그 급증 스파이크 | 최근 1분 발생률이 평균 3배+ | 시간윈도우 |
+| **R024** | 0.40 | 연결실패→재시작 연쇄 | conn refused 후 5분 내 restart/killed | 순서패턴 |
 
 ### 점수 가중 의도
 - **0.40~0.45 (R007/R013)**: 최고 증거력 — OOM·크래시는 단독으로도 진단력. 단, HIGH(≥0.75)는 단독 불가.
@@ -109,7 +115,13 @@ interact_b  = +0.15  if R001 ∧ R004     # timeout + 5xx       ← interaction_
             + +0.12  if R008 ∧ R001     # DB + timeout
             + +0.12  if R009 ∧ R013     # disk + crash
             + +0.10  if R010 ∧ R001     # CPU + timeout
-            # (조합은 누적 합산 — 해당하는 모든 쌍의 보너스가 더해짐)
+            + +0.15  if R019 ∧ R022     # 에러 버스트 + 다중 source
+            + +0.12  if R019 ∧ R021     # 에러 버스트 + 높은 에러율
+            + +0.15  if R020 ∧ R007     # 타임아웃→크래시 + OOM
+            + +0.15  if R024 ∧ R022     # 연결→재시작 + 다중 source
+            + +0.12  if R021 ∧ R008     # 높은 에러율 + DB
+            + +0.10  if R023 ∧ R019     # 급증 + 버스트
+            # (13개 조합, 누적 합산 — 해당하는 모든 쌍의 보너스가 더해짐)
 gpt_b       = +0..0.2  (strategy=gpt 이고 OPENAI_API_KEY 존재 시)
 confidence  = min(base + evidence_b + interact_b + gpt_b, 1.0)
 ```
@@ -132,14 +144,14 @@ confidence  = min(base + evidence_b + interact_b + gpt_b, 1.0)
 
 ## 5. severity 매핑
 
-| confidence | severity | 의미 |
+| confidence / 조건 | severity | 의미 |
 | --- | --- | --- |
-| `≥ 0.75` | **HIGH** | 액션 필요, 알림 대상 |
+| 치명적 룰 조합 (R020+R007, R019+R022, R024+R022) 또는 `≥ 0.85` & 5개+ 룰 | **CRITICAL** | 즉시 대응, 인프라 장애 수준 |
+| `≥ 0.75` 또는 크래시/OOM/연쇄크래시 단독 (R013, R007, R020) | **HIGH** | 액션 필요, 알림 대상 |
 | `0.45 ≤ x < 0.75` | **MEDIUM** | 주의 관찰 |
 | `< 0.45` | **LOW** | 단순 신호 |
-| (CRITICAL) | enum 존재, 매핑 룰 미정 | P2-2에서 도입 — 다중 룰 + 시간 밀집도 + 영향 범위 |
 
-`rule_engine.py` 의 severity 함수(`if score >= 0.75 ... elif >= 0.45 ...`)에서 단순 분기. 임계값 변경 시 회귀 테스트 (`validation/distribution.py`) 필수.
+`engine.py`에서 confidence + 룰 조합 기반으로 자동 매핑. 임계값 변경 시 회귀 테스트 (`tests/test_rule_engine.py` + `validation/distribution.py`) 필수.
 
 ---
 

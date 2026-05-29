@@ -52,7 +52,7 @@ backend/src/
 │   ├── rule_engine.py      R001~R018 + interaction_bonus + aggregate()
 │   ├── gpt_analyzer.py     단건 GPT 보강 (모델 gpt-4.1-mini ⚠️)
 │   ├── gpt_weekly.py · weekly_service.py    주간 요약/리스크
-│   └── validation/         test_cases.py(50) · distribution.py
+│   └── validation/         test_cases.py(60) · distribution.py
 ├── model/                  User · Tenant · refresh_token · Project · log · analysis_result · weekly_report
 ├── schemas/                enums.py(LogLevel·SeverityLevel·AnalysisStrategy) · auth · project · log · analysis · ingest
 └── scripts/seed.py         3 tenants × 2 projects × 18 logs (--reset 로 drop+recreate)

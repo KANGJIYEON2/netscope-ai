@@ -1,7 +1,12 @@
 # Design System — Incident Report Dashboard
 
 > **목적**: 차별점 ② "보고서급 대시보드"의 일관성·임팩트를 보장하는 디자인 토큰·컴포넌트 룰북.
-> **현재 상태**: `frontend/src/styles/severity.ts` 가 빈 파일이고, 색은 컴포넌트 안에 하드코딩되어 있음 → 본 문서가 정본 단일 출처(SSOT)가 된다.
+> **현재 상태 (2026-05-29)**: 본 문서는 대부분 **목표 스펙(SSOT)** 이며 아직 코드에 미반영. 구체적으로:
+> - `frontend/src/styles/severity.ts` = **빈 파일** (§9 의 `severityToken`/`ruleColor` 헬퍼 미구현)
+> - `globals.css` 에 §9-1 의 `--surface-*`/`--sev-*` CSS 변수 **없음**
+> - 실제 `SeverityBadge.tsx` 는 스펙과 다름 — prop 이 `level: "LOW"|"MEDIUM"|"HIGH"|"UNKNOWN"`(§5-1 의 `severity`+`CRITICAL`+`confidence` 아님), 색은 `bg-red-600`/`bg-yellow-500`/`bg-emerald-600` **하드코딩**(이 문서가 금지하는 안티패턴), 아이콘·신뢰도 표시 없음
+>
+> → 즉 이 문서는 "이렇게 만들자"는 타깃이고, 새 컴포넌트는 여기에 맞춰 구현하면서 `severity.ts` 를 채우는 게 정답이다.
 
 ## 목차
 - [1. 디자인 원칙](#1-디자인-원칙)

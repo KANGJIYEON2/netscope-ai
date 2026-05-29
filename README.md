@@ -27,7 +27,7 @@
 ```
 영역                상태      비고
 ──────────────────────────────────────────────────────────────────────
-🟢 Rule Engine      DONE      R001~R018, 상호작용 보너스, 검증셋 50개
+🟢 Rule Engine      DONE      R001~R018, 상호작용 보너스, 검증셋 60개
 🟢 Auth             DONE      httpOnly 쿠키 + Refresh Rotation + Reuse 탐지
 🟢 DB 영속화        DONE      Postgres + SQLAlchemy + create_all 초기화
 🟢 Multi-tenancy    DONE      JWT(sub, tenant_id) → 모든 라우터에서 tenant 강제
@@ -280,7 +280,7 @@ Client                  Frontend (axios)             Backend                 Pos
 GPT 보강 시에도 룰 결과가 **baseline** — `gpt_analyzer.py` 의 system prompt 가
 `"The rule-engine analysis is the baseline. Do NOT contradict rules without clear justification."` 로 고정.
 
-**검증 자산** — `backend/src/analysis/validation/test_cases.py`(50개 시나리오) · `distribution.py`(분포/미스매치 리포트).
+**검증 자산** — `backend/src/analysis/validation/test_cases.py`(60개 시나리오) · `distribution.py`(분포/미스매치 리포트).
 
 ---
 
@@ -493,6 +493,7 @@ python netscope-agent.py --path /var/log/app.log \
 ### Docker Compose (권장)
 
 ```bash
+# backend/.env.docker 에 SECRET_KEY(필수)·OPENAI_API_KEY(선택) 채운 뒤
 docker compose up -d --build
 # Postgres   → localhost:5432  (volume: postgres_data)
 # Backend    → http://localhost:8000  (Swagger: /docs)

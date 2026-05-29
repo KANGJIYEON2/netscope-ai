@@ -20,71 +20,100 @@
 
 | 도구 | 버전 | 용도 |
 | --- | --- | --- |
-| Python | ≥ 3.10 | 백엔드, 에이전트 |
-| Node.js | ≥ 20 LTS | 프론트엔드 (Next 16) |
+| **Docker + Compose** | 최신 | **권장 실행 경로** (postgres + backend + frontend 한 번에) |
+| Python | ≥ 3.10 | 백엔드, 에이전트 (수동 실행 시) |
+| Node.js | ≥ 20 LTS | 프론트엔드 (Next 16) (수동 실행 시) |
 | npm | ≥ 10 | 프론트 패키지 |
 | Git | ≥ 2.40 | — |
-| (옵션) PostgreSQL | ≥ 14 | P0-1 이후 영속화 활성화 시 |
-| (옵션) OpenAI API Key | — | `strategy=gpt` 분석 사용 시 |
+| **PostgreSQL** | ≥ 14 (compose는 16) | **필수** — DB 영속화 활성. 수동 실행 시 별도 기동 필요 |
+| (옵션) OpenAI API Key | — | `strategy=gpt` 분석·주간 리포트 GPT 요약 사용 시 |
 
 플랫폼: macOS / Linux / **Windows 11** (PowerShell 사용 시 BOM·CRLF 주의 — 에이전트가 자동 처리하지만 코드 편집 시 LF 권장)
 
 ---
 
-## 2. 5분 셋업
+## 2. 셋업
 
-### 2-1. 클론 & 디렉터리
+### 2-A. Docker Compose (권장)
+
 ```bash
-git clone <repo>
-cd netscope-ai
+git clone <repo> && cd netscope-ai
+
+# backend/.env.docker 에 SECRET_KEY(필수) · OPENAI_API_KEY(선택) 채움
+#   (compose backend 가 env_file: ./backend/.env.docker 로 주입.
+#    DATABASE_URL/APP_ENV 는 docker-compose.yml 이 직접 설정)
+
+docker compose up -d --build
+# Postgres   → localhost:5432  (volume: postgres_data)
+# Backend    → http://localhost:8000  (Swagger: /docs)
+# Frontend   → http://localhost:3000  (→ /auth/login 리다이렉트)
+
+# 데모 데이터 시드 (alice/bob/carol@demo.io · PW Demo1234!)
+docker compose exec backend python -m scripts.seed --reset
 ```
 
-### 2-2. 백엔드
+종료/초기화: `docker compose down` (데이터 유지) · `docker compose down -v` (DB wipe).
+
+### 2-B. 로컬 (수동)
+
+> ⚠️ `SECRET_KEY` 는 **필수** (`core/config.py` 에 기본값 없음 — 미설정 시 부팅 실패). `DATABASE_URL` 도 설정해야 보호 라우트가 동작한다. Postgres 가 먼저 떠 있어야 함.
+
 ```powershell
+# Backend
 cd backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 
-# (옵션) GPT 사용
-$env:OPENAI_API_KEY = "sk-..."
+$env:SECRET_KEY = "dev-secret"
+$env:DATABASE_URL = "postgresql+psycopg://netscope:netscope_dev_pw@localhost:5432/netscope"
+$env:OPENAI_API_KEY = "sk-..."        # 선택
 
 uvicorn src.main:app --reload --port 8000
 ```
 → http://localhost:8000/docs (FastAPI 자동 스웨거)
 
-### 2-3. 프론트엔드
-새 터미널:
 ```powershell
+# Frontend (새 터미널)
 cd frontend
 npm install
-
-# (옵션) API 위치 변경
 $env:NEXT_PUBLIC_API_BASE_URL = "http://localhost:8000"
-
 npm run dev
 ```
 → http://localhost:3000
 
-### 2-4. 에이전트 (옵션)
-```powershell
-cd backend\netscope-agent
-python netscope-agent.py --path ..\..\test-log\shell.log --source demo
-```
-- `test-log/shell.log` 에 라인을 추가(`Add-Content`)하면 실시간으로 백엔드에 전송됨.
-- 프론트의 "Incoming Logs" 패널에 3초 이내 표시되면 정상.
+### 2-C. 분석 흐름 한 번 돌려보기 (인증 필요)
 
-### 2-5. 분석 1회 돌려보기 (curl)
+> 모든 `/projects/...` 라우트는 쿠키 인증이 필요하다. curl 로는 쿠키 jar(`-c`/`-b`)를 써야 하므로, **Swagger UI(`/docs`) 또는 프론트**로 확인하는 게 가장 쉽다.
+
 ```bash
-curl -X POST http://localhost:8000/logs \
+# 1) 로그인 → 쿠키 저장
+curl -c cookies.txt -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@demo.io","password":"Demo1234!"}'
+
+# 2) 내 프로젝트 목록 (project_id 확보)
+curl -b cookies.txt http://localhost:8000/projects
+
+# 3) 로그 등록 (201, id 확보)
+curl -b cookies.txt -X POST http://localhost:8000/projects/<PID>/logs \
   -H "Content-Type: application/json" \
   -d '{"source":"gateway","message":"Request timed out after 30s","level":"ERROR"}'
 
-# id 받아서
-curl -X POST http://localhost:8000/analysis \
+# 4) 분석 실행
+curl -b cookies.txt -X POST http://localhost:8000/projects/<PID>/analysis \
   -H "Content-Type: application/json" \
-  -d '{"log_ids":["<UUID>"],"strategy":"rule"}'
+  -d '{"log_ids":["<LOG_UUID>"],"strategy":"rule"}'
 ```
+
+> 인증 없이 룰만 빠르게 확인하려면 `POST /analysis/test` (`{"messages":[...], "strategy":"rule"}`) 사용.
+
+### 2-D. 에이전트 (옵션)
+```powershell
+cd backend\netscope-agent
+python netscope-agent.py --path ..\..\test-log\shell.log --source demo --tenant <uuid> --project <uuid>
+```
+> ⚠️ 현재 에이전트의 `API_URL` 이 legacy `/logs` 라 그대로는 동작하지 않음 — `/ingest` 로 전환 + 인증/헤더 정합 필요 (P0).
 
 ---
 
@@ -93,7 +122,7 @@ curl -X POST http://localhost:8000/analysis \
 | 목적 | 띄울 것 | 메모 |
 | --- | --- | --- |
 | **프론트만 작업** | 백엔드 + 프론트 | 에이전트 없이 LogForm으로 수동 입력 |
-| **룰 엔진 튜닝** | 백엔드 + `validation/distribution.py` | UI 없이 50개 시나리오로 회귀 |
+| **룰 엔진 튜닝** | 백엔드 + `validation/distribution.py` | UI 없이 60개 시나리오로 회귀 |
 | **에이전트 검증** | 백엔드 + 에이전트 + 임의 로그 파일 | `Add-Content` 또는 `echo >>` 로 라인 주입 |
 | **풀스택 데모** | 4개 모두 | 발표/회의 시나리오 |
 | **GPT 동작 확인** | 백엔드 (OPENAI_API_KEY 세팅) + 프론트 | StrategySelect → GPT |
@@ -112,19 +141,22 @@ netscope-ai/
 │   ├── RULE_ENGINE.md                 ← 룰 엔진 정본
 │   ├── DEVELOPMENT.md                 ← (현재 문서)
 │   └── DESIGN_SYSTEM.md               ← FE 토큰/컴포넌트 룰
+├── docker-compose.yml                 ← postgres + backend + frontend
 ├── backend/
 │   ├── src/
-│   │   ├── main.py                    ← FastAPI 부트
-│   │   ├── api/v1/                    ← 라우터
-│   │   ├── log/                       ← 로그 도메인
-│   │   ├── analysis/                  ← ⭐ 룰 엔진 + GPT
-│   │   ├── schemas/                   ← Pydantic DTO
-│   │   ├── model/                     ← SQLAlchemy ORM (미연결)
-│   │   ├── repositories/              ← (미연결)
-│   │   ├── infrastructure/            ← storage, db, redis
-│   │   └── core/                      ← config, security, logging (스텁)
+│   │   ├── main.py                    ← FastAPI 부트 (라우터 7개 등록)
+│   │   ├── api/v1/                    ← 라우터 (auth/projects/logs/analysis/reports/ingest/test/dep)
+│   │   ├── core/                      ← config(Settings) · jwt · security(argon2) · logging(스텁)
+│   │   ├── db/                        ← session/get_db · init(create_all) · base
+│   │   ├── domain/                    ← ⭐ 쓰기/도메인 로직 (auth/log/project)
+│   │   ├── ingest/                    ← ingest hot path (service→aggregator→signals→persist)
+│   │   ├── analysis/                  ← ⭐ 룰 엔진 + GPT + weekly + validation
+│   │   ├── schemas/                   ← Pydantic DTO + Enum
+│   │   ├── model/                     ← SQLAlchemy ORM (✅ 전부 연결됨)
+│   │   └── repositories/              ← project_repository 등
+│   ├── scripts/seed.py                ← 데모 시드 (--reset)
 │   ├── netscope-agent/                ← 단일 스크립트 collector
-│   ├── tests/                         ← pytest
+│   ├── tests/                         ← pytest (현재 비어있음)
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
@@ -178,8 +210,8 @@ netscope-ai/
 ## 6. 테스트 정책
 
 ### 6-1. 현재 상태
-- `backend/tests/test_health.py` 1개. 회귀 방어 사실상 0.
-- `analysis/validation/` 50개 시나리오 — pytest 미통합.
+- `backend/tests/test_health.py` 본문 비어있음. 회귀 방어 사실상 0.
+- `analysis/validation/` 60개 시나리오 — pytest 미통합 (standalone 실행만).
 
 ### 6-2. 목표 (P0-7)
 | 레벨 | 도구 | 예 |
@@ -243,16 +275,22 @@ npm run build
 
 ## 8. 환경변수 카탈로그
 
+실제 정의는 `backend/src/core/config.py` 의 `Settings`.
+
 | 변수 | 사용처 | 기본 | 설명 |
 | --- | --- | --- | --- |
-| `OPENAI_API_KEY` | backend | (none) | 미설정 시 GPT 분석 비활성. `strategy=gpt`도 룰만 실행 |
+| `SECRET_KEY` | backend | **(필수, 기본 없음)** | JWT 서명 키. 미설정 시 부팅 실패 |
+| `DATABASE_URL` | backend | `None` | `postgresql+psycopg://...` — 없으면 DB 라우트 동작 안 함 |
+| `OPENAI_API_KEY` | backend | `None` | 미설정 시 GPT 분석/요약 비활성. `strategy=gpt`도 룰만 실행 |
+| `APP_ENV` | backend | `local` | `local \| prod` (`is_prod` 분기) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | backend | `60` | access 토큰/쿠키 TTL |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | backend | `14` | refresh 토큰/쿠키 TTL |
+| `FRONTEND_ORIGIN` | backend | `http://localhost:3000` | **CORS 단일 오리진** (`ALLOWED_ORIGINS` 아님) |
+| `COOKIE_SECURE` | backend | `False` | 운영 HTTPS 에서 `True` 로 |
+| `COOKIE_SAMESITE` | backend | `lax` | 쿠키 SameSite |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | `http://localhost:8000` | API 위치 |
-| (P0 추가 예정) `DATABASE_URL` | backend | — | `postgresql+psycopg://...` |
-| (P0 추가 예정) `ALLOWED_ORIGINS` | backend | `*` | CORS 화이트리스트 (콤마 구분) |
-| (P0 추가 예정) `LOG_LEVEL` | backend | `INFO` | 백엔드 로깅 레벨 |
-| (P1 추가 예정) `REDIS_URL` | backend | — | 결과 캐시 |
 
-> `.env.example` 추가 PR 권장 (현재 없음).
+> ⚠️ `LOG_LEVEL` · `ALLOWED_ORIGINS` · `REDIS_URL` 은 **현재 config.py 에 없음** (미구현). CORS 다환경(`ALLOWED_ORIGINS` 목록화)은 P1 항목.
 
 ---
 
@@ -267,10 +305,9 @@ npm run build
 - 모델명 이슈 — 코드는 `gpt-4.1-mini`. 의도가 `gpt-4o-mini`라면 `gpt_analyzer.py` 수정 (P0 항목).
 
 ### 9-3. "프론트가 API에 못 붙음"
-- 백엔드 CORS 가 현재 `*` 라 거의 항상 통과. 그래도 안 되면:
-  - `NEXT_PUBLIC_API_BASE_URL` 정확한지
-  - 백엔드 `--port 8000` 인지
-  - 브라우저 콘솔 네트워크 탭에서 실제 요청 URL 확인
+- 백엔드 CORS 는 `FRONTEND_ORIGIN` **단일 오리진**만 허용(+`allow_credentials`). 프론트 주소가 기본 `http://localhost:3000` 가 아니면 `FRONTEND_ORIGIN` 을 맞춰야 함.
+- 그래도 안 되면: `NEXT_PUBLIC_API_BASE_URL` 정확한지 / 백엔드 `--port 8000` 인지 / 네트워크 탭에서 실제 요청 URL·쿠키 전송(`withCredentials`) 확인.
+- 401 무한루프면 쿠키 미발급(로그인 안 됨) 또는 `samesite`/`secure` 설정 의심.
 
 ### 9-4. "에이전트가 로그를 안 보냄"
 - 1차 필터를 통과해야 함 (ERROR/WARN/TIMEOUT/5xx 중 하나). `INFO` 만 있는 라인은 의도적으로 무시.
@@ -291,21 +328,9 @@ npm run build
 - http://localhost:8000/docs — DTO 스키마 + 시도 가능한 폼.
 - 큰 페이로드 디버깅에 유용.
 
-### 10-2. 룰 엔진만 단독 실행 (REPL)
-```python
-from src.log.models import Log
-from src.analysis.rule_engine import RuleEngine
-from datetime import datetime, timezone
-
-logs = [
-    Log(source="gateway", message="Request timed out after 30s",
-        level="ERROR", timestamp=datetime.now(timezone.utc),
-        received_at=datetime.now(timezone.utc)),
-    # ...
-]
-res = RuleEngine().aggregate(logs)
-print(res.matched_rules, res.base_score)
-```
+### 10-2. 룰 엔진만 단독 실행
+- 가장 쉬운 길: `POST /analysis/test` 에 `{"messages": ["[ERROR] Request timed out", "502 Bad Gateway"], "strategy": "rule"}` 전송 → DB·인증 없이 룰 결과만 반환.
+- 코드 레벨: `AnalysisEngine().analyze_test(messages=[...], strategy="rule")`. 룰 엔진은 ORM `Log` 가 아니라 `RuleLog`(frozen dataclass) 를 받는다 — `engine.py` 가 변환을 담당.
 
 ### 10-3. 에이전트가 어떤 라인을 보냈는지
 - 에이전트는 stdout에 보낸 라인을 출력함. tail -f 로 확인.
@@ -323,14 +348,14 @@ print(res.matched_rules, res.base_score)
 ## 부록 — 참고 명령어 모음
 
 ```powershell
-# 백엔드 hot reload + 로그 레벨 디버그
-$env:LOG_LEVEL="DEBUG"; uvicorn src.main:app --reload --port 8000
+# 백엔드 hot reload (필수 env)
+$env:SECRET_KEY="dev-secret"; $env:DATABASE_URL="postgresql+psycopg://netscope:netscope_dev_pw@localhost:5432/netscope"; uvicorn src.main:app --reload --port 8000
 
-# 룰 회귀
+# 룰 회귀 (60개 시나리오)
 python -m src.analysis.validation.distribution
 
-# 에이전트
-python netscope-agent.py --path C:\logs\app.log --source api
+# 데모 시드 재실행
+python -m scripts.seed --reset
 
 # 프론트 빌드 검증 (배포 전)
 npm run build && npm run start

@@ -6,7 +6,7 @@
 ## 목차
 - [1. 설계 철학](#1-설계-철학)
 - [2. 룰 정의 모델](#2-룰-정의-모델)
-- [3. 기본 룰 카탈로그 (R001~R006)](#3-기본-룰-카탈로그-r001r006)
+- [3. 기본 룰 카탈로그 (R001~R018)](#3-기본-룰-카탈로그-r001r018)
 - [4. 스코어링 공식](#4-스코어링-공식)
 - [5. severity 매핑](#5-severity-매핑)
 - [6. 설명가능성 출력](#6-설명가능성-출력)
@@ -34,17 +34,17 @@
 ## 2. 룰 정의 모델
 
 ```python
-# backend/src/analysis/rule_engine.py
-@dataclass
+# backend/src/analysis/rule_engine.py — 개념적 형태 (실제는 plain class)
 class Rule:
-    id: str                                   # "R001"
-    name: str                                 # 사람이 읽는 이름
-    score: float                              # 0..1, 매칭 시 base에 가산
-    predicate: Callable[[list[Log]], bool]    # 매칭 여부
-    evidence_builder: Callable[[list[Log]], str]  # "evidence: ..." 문자열 생성
-    causes: list[str]                         # 의심 원인 후보
-    actions: list[str]                        # 권장 액션
+    id: str                                       # "R001"
+    title: str                                    # 사람이 읽는 제목 (한국어)
+    score: float                                  # 0..1, 매칭 시 base에 가산
+    predicate: Callable[[list[RuleLog]], bool]    # 매칭 여부
+    evidence: str                                 # 매칭 근거 문자열
+    causes: list[str]                             # 의심 원인 후보
+    actions: list[str]                            # 권장 액션
 ```
+> ⚠️ 룰은 ORM `Log` 가 아니라 **`RuleLog`(frozen dataclass)** 를 받는다. `engine.py` 가 ORM→RuleLog 변환을 담당하므로 룰 엔진은 DB를 전혀 모른다.
 
 ### 평가 흐름
 ```
@@ -58,23 +58,38 @@ logs ─► [Rule.predicate] ─► matched? ─► evidence_builder ─► (cau
 
 ---
 
-## 3. 기본 룰 카탈로그 (R001~R006)
+## 3. 기본 룰 카탈로그 (R001~R018)
 
-| ID | name | score | 트리거 (요약) | 주요 cause | 주요 action |
-| --- | --- | :---: | --- | --- | --- |
-| **R001** | Timeout detection | 0.35 | 메시지에 `TIMEOUT`, `ETIMEDOUT`, `timed out` (case-insensitive) | upstream 지연·네트워크 손실·과부하 | timeout 설정 재검토·upstream 헬스 |
-| **R002** | Connection failure | 0.35 | `ECONNREFUSED`, `connection reset` | 포트 미LISTEN·방화벽·서비스 다운 | 포트 점검·FW 룰·서비스 헬스 |
-| **R003** | DNS / Name resolution | 0.25 | `ENOTFOUND`, `NXDOMAIN`, `getaddrinfo` | 레코드 누락·resolver 장애·DNS 설정 오류 | A/AAAA 확인·dig/nslookup |
-| **R004** | 5xx upstream | 0.25 | HTTP 코드 `502`/`503`/`504` | upstream 앱 오류·게이트웨이 오류·트래픽 폭주 | upstream 로그·proxy 로그·오토스케일 |
-| **R005** | ERROR-level density | 0.20 | level == `ERROR` 인 로그 다수 | 앱/시스템 에러 일반 | 타임라인 상관관계·배포 이력 |
-| **R006** | Repeated source | 0.20 | 동일 `source` 가 ≥ 5회 발생 | 컴포넌트 루프·재시도 무한 | 상세 로그·circuit breaker |
+> 룰셋 버전 `v2.0`. 코드 정본: `rule_engine.py::default_rules()` (Rule 18개). 제목/근거 문자열은 한국어.
+
+| 룰 ID | 점수 | 제목 | 트리거 키워드/조건 |
+| :---: | :---: | --- | --- |
+| **R001** | 0.35 | Timeout 발생 | `timeout`, `timed out`, `ETIMEDOUT` |
+| **R002** | 0.35 | Connection 실패 | `connection refused`, `ECONNREFUSED`, `reset by peer` |
+| **R003** | 0.25 | DNS / Name Resolution | `ENOTFOUND`, `NXDOMAIN`, `DNS`, `name resolution` |
+| **R004** | 0.25 | 5xx 응답 | `5\d\d`, `502`, `503`, `504` |
+| **R005** | 0.20 | ERROR 레벨 존재 | `level == ERROR` |
+| **R006** | 0.20 | 동일 source ≥ 5회 | `_count_by_source ≥ 5` |
+| **R007** | 0.40 | Out of Memory | `OOM`, `OutOfMemoryError`, `MemoryError` |
+| **R008** | 0.30 | DB 관련 오류 | `database`/`SQL`/`pool`/`deadlock` + ERROR/WARN |
+| **R009** | 0.35 | 디스크 용량 부족 | `disk full`, `ENOSPC`, `no space left` |
+| **R010** | 0.25 | CPU 과부하 | `CPU`, `high load`, `throttl` |
+| **R011** | 0.25 | 인증/인가 실패 | auth 키워드 + 4xx 동시 |
+| **R012** | 0.20 | Rate Limit 초과 | `rate limit`, `too many requests`, `quota` |
+| **R013** | 0.45 | 애플리케이션 크래시 | `crash`, `panic`, `segfault`, `fatal` |
+| **R014** | 0.30 | 서비스 재시작 | `restart`, `reboot`, `killed`, `terminated` |
+| **R015** | 0.30 | SSL/TLS 인증서 문제 | `SSL`/`TLS`/`certificate` + ERROR/WARN |
+| **R016** | 0.25 | 권한 거부 | `permission denied`, `EACCES`, `access denied` |
+| **R017** | 0.15 | 4xx 반복 | `4\d\d` 가 ≥ 3회 |
+| **R018** | 0.15 | WARN ≥ 3회 | `level == WARN` 가 ≥ 3건 |
 
 ### 점수 가중 의도
-- **0.35 (R001/R002)**: 고증거력. 단독으로도 MEDIUM 가능 (0.45 임계와 가까움)
-- **0.25 (R003/R004)**: 중증거력. 다른 룰과 함께일 때 결정력 발휘
-- **0.20 (R005/R006)**: 보조 신호. 단독 매칭은 LOW 유지가 의도
+- **0.40~0.45 (R007/R013)**: 최고 증거력 — OOM·크래시는 단독으로도 진단력. 단, HIGH(≥0.75)는 단독 불가.
+- **0.30~0.35 (R001/R002/R009/R008/R014/R015)**: 고~중증거력.
+- **0.25 (R003/R004/R010/R011/R016)**: 중증거력. 다른 룰과 함께일 때 결정력.
+- **0.15~0.20 (R005/R006/R012/R017/R018)**: 보조 신호. 단독 매칭은 LOW 유지가 의도.
 
-> R005/R006은 "자주 매칭되지만 단독으로는 약한 신호" — 점수가 낮게 설계된 이유.
+> R005/R006/R017/R018 은 "자주 매칭되지만 단독으로는 약한 신호" — 점수가 낮게 설계된 이유.
 
 ---
 
@@ -82,13 +97,19 @@ logs ─► [Rule.predicate] ─► matched? ─► evidence_builder ─► (cau
 
 ```
 base        = Σ matched_rule.score
-evidence_b  = +0.15 (룰 4개 이상)
+evidence_b  = +0.20 (룰 ≥ 5개)          # ← rule_engine.py::evidence_count_bonus
+            | +0.15 (룰 4개)
             | +0.10 (룰 3개)
             | +0.05 (룰 2개)
             | 0
-interact_b  = +0.15  if R001 ∧ R004                      # timeout + 5xx
-            | +0.10  if R001 ∧ R005 또는 R002 ∧ R003     # timeout+error 또는 conn+dns
-            | 0
+interact_b  = +0.15  if R001 ∧ R004     # timeout + 5xx       ← interaction_bonus()
+            + +0.10  if R001 ∧ R005     # timeout + ERROR
+            + +0.10  if R002 ∧ R003     # connection + DNS
+            + +0.15  if R007 ∧ R013     # OOM + crash
+            + +0.12  if R008 ∧ R001     # DB + timeout
+            + +0.12  if R009 ∧ R013     # disk + crash
+            + +0.10  if R010 ∧ R001     # CPU + timeout
+            # (조합은 누적 합산 — 해당하는 모든 쌍의 보너스가 더해짐)
 gpt_b       = +0..0.2  (strategy=gpt 이고 OPENAI_API_KEY 존재 시)
 confidence  = min(base + evidence_b + interact_b + gpt_b, 1.0)
 ```
@@ -118,21 +139,21 @@ confidence  = min(base + evidence_b + interact_b + gpt_b, 1.0)
 | `< 0.45` | **LOW** | 단순 신호 |
 | (CRITICAL) | enum 존재, 매핑 룰 미정 | P2-2에서 도입 — 다중 룰 + 시간 밀집도 + 영향 범위 |
 
-`engine.py` 의 `_severity_from_confidence()`에서 단순 if-elif. 임계값 변경 시 회귀 테스트 (`validation/distribution.py`) 필수.
+`rule_engine.py` 의 severity 함수(`if score >= 0.75 ... elif >= 0.45 ...`)에서 단순 분기. 임계값 변경 시 회귀 테스트 (`validation/distribution.py`) 필수.
 
 ---
 
 ## 6. 설명가능성 출력
 
-분석 응답의 `matched_rules` 배열 형식:
+분석 응답의 `matched_rules` 배열 형식 (`rule_engine.py`: `f"{rule_id} {title} (+{score:.2f}) - {evidence}"`):
 ```
-"R001 Timeout detection (+0.35) - evidence: 'Request timed out after 30s' x4"
+"R001 Timeout 발생 (+0.35) - 로그 메시지에 timeout / timed out / ETIMEDOUT 키워드가 포함됨"
 ```
 구성요소:
 - `R001` — 룰 ID (감사·문서 참조)
-- `Timeout detection` — 사람용 이름
-- `(+0.35)` — 이 룰이 base에 기여한 점수
-- `evidence: ...` — `evidence_builder()` 출력 (어떤 로그/패턴이 매칭됐는지)
+- `Timeout 발생` — 사람용 제목 (한국어)
+- `(+0.35)` — 이 룰이 base에 기여한 점수 (`:.2f`)
+- `- <근거>` — 매칭 근거 문자열 (어떤 키워드/조건이 매칭됐는지)
 
 > P1-0 보고서 대시보드에서는 이 문자열을 파싱하지 않고 **`matched_rules_detail` 구조화 응답**(`API_REFERENCE.md` 참조)을 사용한다. 문자열 형식은 호환성 위해 유지.
 
@@ -173,13 +194,13 @@ merge: rule.causes + gpt.causes (중복 제거)
 ## 8. 검증 (validation 디렉터리)
 
 ### `validation/test_cases.py`
-50개 시나리오, 4개 군:
+**60개** 시나리오 (`TC-001`~`TC-060`), 대략 4개 군:
 1. **Silence/Noise** — INFO 스팸, DEBUG만 → LOW 기대
 2. **Single rule** — 룰 1개만 매칭 → LOW~MEDIUM 기대
-3. **Multi rule** — 2~4개 룰 매칭 → MEDIUM~HIGH 기대
+3. **Multi rule** — 2개 이상 룰 매칭 → MEDIUM~HIGH 기대
 4. **Edge** — 혼합 (INFO 다수 + ERROR 소수 등)
 
-각 케이스: `(name, logs, expected_severity, expected_confidence_range)`
+각 케이스는 dict: `{ id, description, logs, expected_rules, expected_confidence_level }`.
 
 ### `validation/distribution.py`
 - 위 50개를 일괄 실행
@@ -199,11 +220,14 @@ python -m src.analysis.validation.distribution
 ## 9. 새 룰 추가 가이드
 
 ### 9-1. 코드 변경
+
+> ⚠️ 아래는 **형태 예시일 뿐** — 실제 R007 은 Out of Memory 룰이다(이미 사용 중인 ID). 새 룰은 미사용 ID(예: R019)를 쓸 것.
+
 ```python
 # backend/src/analysis/rule_engine.py 의 default_rules() 안
 
 Rule(
-    id="R007",
+    id="R019",
     name="TLS handshake failure",
     score=0.25,
     predicate=lambda logs: any(
@@ -247,9 +271,9 @@ python -m src.analysis.validation.distribution
 
 ### 9-5. 상호작용 보너스 추가 (선택)
 ```python
-# engine.py 의 _interaction_bonus() 안에
-if "R001" in matched_ids and "R007" in matched_ids:
-    bonus += 0.10   # timeout + TLS — 인증서 만료 시 자주 동시 발생
+# rule_engine.py 의 interaction_bonus() 안에
+if "R001" in matched_ids and "R015" in matched_ids:
+    bonus += 0.10   # timeout + SSL/TLS — 인증서 만료 시 자주 동시 발생
 ```
 → **도메인 지식이 있을 때만** 추가. 임의 추가는 점수 인플레 야기.
 

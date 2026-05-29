@@ -85,7 +85,7 @@ def gpt_explain_weekly(
     ]
 
     res = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0.2,
     )
@@ -144,7 +144,7 @@ def gpt_predict_next_week_risk(
     ]
 
     res = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0.2,
     )
@@ -220,7 +220,7 @@ def gpt_risk_outlook(
     ]
 
     res = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0.1,
     )

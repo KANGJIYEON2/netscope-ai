@@ -12,7 +12,7 @@ from datetime import datetime, UTC
 # =========================
 # CONFIG
 # =========================
-API_URL = "http://127.0.0.1:8000/logs"
+API_URL = "http://127.0.0.1:8000/ingest"
 
 # 로그 필터 룰 (Agent-side Rule v0)
 KEYWORDS = re.compile(
@@ -68,40 +68,34 @@ def is_interesting(line: str) -> bool:
 # =========================
 # SEND
 # =========================
-def send_log(
+def send_logs(
     *,
-    line: str,
-    source: str,
+    lines: list[str],
     tenant_id: str,
     project_id: str,
 ):
-    payload = {
-        "source": source,
-        "message": line,
-        "level": detect_level(line),
-        "timestamp": now_iso(),
-        "host": hostname(),
-    }
+    """POST /ingest — logs 는 raw 문자열 배열."""
+    payload = {"logs": lines}
 
     headers = {
         "X-Tenant-ID": tenant_id,
         "X-Project-ID": project_id,
     }
 
-    print("\n[AGENT] ▶ POST /logs")
+    print(f"\n[AGENT] ▶ POST /ingest  ({len(lines)} lines)")
     print("[AGENT] headers:", headers)
-    print("[AGENT] payload:", payload)
 
     try:
         r = requests.post(
             API_URL,
             json=payload,
             headers=headers,
-            timeout=3,
+            timeout=5,
         )
         print("[AGENT] status:", r.status_code)
         r.raise_for_status()
-        print(f"[SENT] {payload['level']} {line}")
+        for l in lines:
+            print(f"[SENT] {l[:120]}")
     except Exception as e:
         print("[FAILED]", repr(e))
 
@@ -141,6 +135,7 @@ def tail_file(
 
                 print(f"[DEBUG] new bytes detected: {current_size - last_size}")
 
+                batch = []
                 for raw_line in new_data.splitlines():
                     line = normalize(raw_line)
 
@@ -151,14 +146,16 @@ def tail_file(
 
                     if is_interesting(line):
                         print("[DEBUG] ✔ rule matched")
-                        send_log(
-                            line=line,
-                            source=source,
-                            tenant_id=tenant_id,
-                            project_id=project_id,
-                        )
+                        batch.append(line)
                     else:
                         print("[DEBUG] ✘ ignored")
+
+                if batch:
+                    send_logs(
+                        lines=batch,
+                        tenant_id=tenant_id,
+                        project_id=project_id,
+                    )
 
                 last_size = current_size
 

@@ -11,6 +11,7 @@ from src.api.v1.auth import router as auth_router
 from src.api.v1.test import router as test_router
 from src.api.v1.health import router as health_router
 from src.api.v1.patterns import router as patterns_router
+from src.api.v1.events import router as events_router
 from src.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,3 +34,4 @@ app.include_router(auth_router)
 app.include_router(test_router)
 app.include_router(health_router)
 app.include_router(patterns_router)
+app.include_router(events_router)

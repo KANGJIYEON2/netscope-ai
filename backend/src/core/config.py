@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
     OPENAI_API_KEY: str | None = None
 
+    # Agent → /ingest 인증. 설정 시 에이전트는 X-API-Key 헤더를 보내야 함.
+    # 비워두면(기본) 인증 미적용 — 하위호환.
+    INGEST_API_KEY: str | None = None
+
     # ===============================
     # Frontend / CORS
     # ===============================

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   Activity,
   AlertTriangle,
@@ -26,7 +27,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { TopIssues } from "./components/TopIssues";
 
 export default function FleetDashboardPage() {
-  const { data, refresh } = useFleetData(15000);
+  const { data, liveEvent, refresh } = useFleetData(30000);
 
   // 1s tick so the "updated Xs ago" label stays live.
   const [, setTick] = useState(0);
@@ -34,6 +35,24 @@ export default function FleetDashboardPage() {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Transient live toast on each pushed event. Show via a deferred callback
+  // (not synchronously in the effect body) and auto-hide after a few seconds.
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!liveEvent) return;
+    const sev = liveEvent.severity ? ` · ${liveEvent.severity}` : "";
+    const msg =
+      liveEvent.type === "analysis"
+        ? `⚡ 새 분석${sev}${liveEvent.confidence ? ` ${Math.round(liveEvent.confidence * 100)}%` : ""}`
+        : `⚡ 로그 ${liveEvent.log_count ?? ""}건 수신`;
+    const showId = setTimeout(() => setToast(msg), 0);
+    const hideId = setTimeout(() => setToast(null), 4000);
+    return () => {
+      clearTimeout(showId);
+      clearTimeout(hideId);
+    };
+  }, [liveEvent]);
 
   const kpis = useMemo(() => {
     const open = data.issues.filter((i) => {
@@ -144,6 +163,17 @@ export default function FleetDashboardPage() {
             <TopIssues issues={data.issues} />
           </Card>
         </section>
+
+        {/* Live event toast (SSE 푸시) */}
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-700/50 bg-zinc-900/90 px-4 py-2.5 text-sm font-medium text-emerald-200 shadow-lg backdrop-blur"
+          >
+            {toast}
+          </motion.div>
+        )}
       </main>
     </AppShell>
   );

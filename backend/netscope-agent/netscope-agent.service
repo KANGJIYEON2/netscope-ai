@@ -1,0 +1,35 @@
+[Unit]
+# NETSCOPE log agent — tails a service log and ships interesting lines to /ingest.
+# Install:
+#   sudo cp netscope-agent.py /usr/local/bin/netscope-agent
+#   sudo cp netscope-agent.service /etc/systemd/system/
+#   sudo mkdir -p /etc/netscope && sudo nano /etc/netscope/agent.env   # fill the vars below
+#   sudo systemctl enable --now netscope-agent
+Description=NETSCOPE log agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# /etc/netscope/agent.env example:
+#   NETSCOPE_API_URL=https://netscope.example.com/ingest
+#   NETSCOPE_API_KEY=<shared secret matching backend INGEST_API_KEY>
+#   NETSCOPE_TENANT=<tenant uuid>
+#   NETSCOPE_PROJECT=<project uuid>
+#   NETSCOPE_LOG_PATH=/var/log/myapp/app.log
+#   NETSCOPE_SOURCE=myapp
+EnvironmentFile=/etc/netscope/agent.env
+ExecStart=/usr/bin/python3 /usr/local/bin/netscope-agent \
+    --path ${NETSCOPE_LOG_PATH} \
+    --source ${NETSCOPE_SOURCE} \
+    --tenant ${NETSCOPE_TENANT} \
+    --project ${NETSCOPE_PROJECT}
+Restart=always
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/root/.netscope-agent
+
+[Install]
+WantedBy=multi-user.target

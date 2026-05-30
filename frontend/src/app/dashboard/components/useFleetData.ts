@@ -7,6 +7,7 @@ import { fetchProjectOverview, type ProjectOverview } from "@/lib/api/overview";
 import { fetchReports, type ReportSummary } from "@/lib/api/report";
 import type { Severity } from "@/types/analysis";
 import { asSeverity } from "@/styles/severity";
+import { useLiveEvents, type LiveEvent } from "@/lib/useLiveEvents";
 
 export type FleetIssue = ReportSummary & {
   projectId: string;
@@ -45,9 +46,11 @@ const EMPTY: FleetData = {
  * Fans out per-project report fetches and re-polls on an interval so the
  * global dashboard feels live.
  */
-export function useFleetData(pollMs = 15000) {
+export function useFleetData(pollMs = 30000) {
   const [data, setData] = useState<FleetData>(EMPTY);
+  const [liveEvent, setLiveEvent] = useState<LiveEvent | null>(null);
   const alive = useRef(true);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadOnce = useCallback(async (silent: boolean) => {
     if (!silent) setData((d) => ({ ...d, loading: true }));
@@ -108,6 +111,7 @@ export function useFleetData(pollMs = 15000) {
     // cascading render. The lint rule can't see across the async boundary.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOnce(true);
+    // Slow poll as a fallback; SSE drives the real-time updates below.
     const id = setInterval(() => loadOnce(true), pollMs);
     return () => {
       alive.current = false;
@@ -115,5 +119,12 @@ export function useFleetData(pollMs = 15000) {
     };
   }, [loadOnce, pollMs]);
 
-  return { data, refresh: () => loadOnce(false) };
+  // Real-time: refresh (debounced) whenever the backend pushes an event.
+  useLiveEvents((evt) => {
+    setLiveEvent(evt);
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => loadOnce(true), 400);
+  });
+
+  return { data, liveEvent, refresh: () => loadOnce(false) };
 }

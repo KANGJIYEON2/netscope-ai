@@ -44,3 +44,25 @@ export function useLiveEvents(onEvent: (evt: LiveEvent) => void) {
     return () => es.close();
   }, []);
 }
+
+/**
+ * Auto-refresh a project page when the backend pushes an event for THAT project.
+ * Debounced so a burst of ingest events triggers a single refetch.
+ */
+export function useProjectLiveRefresh(
+  projectId: string | undefined,
+  refresh: () => void
+) {
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
+
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useLiveEvents((evt) => {
+    if (!projectId || evt.project_id !== projectId) return;
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => refreshRef.current(), 400);
+  });
+}

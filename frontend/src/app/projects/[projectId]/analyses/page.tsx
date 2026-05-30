@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/report";
 import { fetchLogs } from "@/lib/api/log";
 import { analyzeLogs } from "@/lib/api/analysis";
+import { useProjectLiveRefresh } from "@/lib/useLiveEvents";
 import { Card } from "@/app/components/ui/Card";
 import { ConfidenceTrendChart } from "@/app/components/charts/ConfidenceTrendChart";
 import { RecentAnalyses } from "@/app/dashboard/components/RecentAnalyses";
@@ -47,6 +48,9 @@ export default function ProjectAnalysesTab() {
   useEffect(() => {
     if (projectId) load();
   }, [projectId, load]);
+
+  // 실시간: 이 프로젝트의 새 분석이 들어오면 자동 갱신
+  useProjectLiveRefresh(projectId, load);
 
   const runWeekly = async () => {
     setRunning(true);

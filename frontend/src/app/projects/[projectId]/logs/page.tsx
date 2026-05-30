@@ -13,6 +13,7 @@ import {
 
 import { fetchLogs, createLog, deleteLog } from "@/lib/api/log";
 import { analyzeLogs } from "@/lib/api/analysis";
+import { useProjectLiveRefresh } from "@/lib/useLiveEvents";
 import type { LogItem, LogLevel } from "@/types/log";
 import type { AnalysisResult as AnalysisResultType } from "@/types/analysis";
 import { Card } from "@/app/components/ui/Card";
@@ -61,6 +62,9 @@ export default function ProjectLogsTab() {
   useEffect(() => {
     if (projectId) load();
   }, [projectId, load]);
+
+  // 실시간: 이 프로젝트로 인입되면 자동 갱신
+  useProjectLiveRefresh(projectId, load);
 
   const filtered = useMemo(() => {
     return logs.filter((l) => {

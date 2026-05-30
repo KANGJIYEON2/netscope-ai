@@ -21,6 +21,7 @@ import {
   severityConfig,
 } from "@/styles/severity";
 
+import { useProjectLiveRefresh } from "@/lib/useLiveEvents";
 import { Card } from "@/app/components/ui/Card";
 import { ConfidenceTrendChart } from "@/app/components/charts/ConfidenceTrendChart";
 import { ConfidenceGauge } from "@/app/components/charts/ConfidenceGauge";
@@ -60,6 +61,9 @@ export default function ProjectOverviewTab() {
   useEffect(() => {
     if (projectId) load();
   }, [projectId, load]);
+
+  // 실시간: 이 프로젝트로 로그가 들어오면 자동 갱신
+  useProjectLiveRefresh(projectId, load);
 
   const { logs24h, errorRate } = useMemo(() => {
     const since = Date.now() - 24 * 60 * 60 * 1000;

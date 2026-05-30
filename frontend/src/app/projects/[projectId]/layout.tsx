@@ -50,6 +50,13 @@ export default function ProjectLayout({
           <h1 className="bg-gradient-to-r from-cyan-300 to-violet-300 bg-clip-text text-2xl font-bold text-transparent">
             {name || "Project"}
           </h1>
+          <span className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-700/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+            LIVE
+          </span>
         </header>
 
         {/* Tab bar */}

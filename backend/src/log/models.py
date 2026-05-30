@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class Log:
@@ -7,9 +7,17 @@ class Log:
         source: str,
         message: str,
         level: str,
-        timestamp: datetime,
-        received_at: datetime,
+        timestamp: datetime | None = None,
+        received_at: datetime | None = None,
     ):
+        # timestamp/received_at are optional so lightweight callers (validation
+        # fixtures, ad-hoc analysis) don't have to fabricate them. Time-based
+        # rules (R019-R024) sort/subtract on `.timestamp`, so it must never be
+        # None — fall back to received_at, then to now().
+        if received_at is None:
+            received_at = datetime.now(UTC)
+        if timestamp is None:
+            timestamp = received_at
         self.source = source
         self.message = message
         self.level = level

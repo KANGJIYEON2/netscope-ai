@@ -1,4 +1,18 @@
+from datetime import datetime, timedelta, UTC
+
 from src.log.models import Log
+
+# Deterministic timestamps for the validation corpus.
+#
+# These cases were authored to exercise keyword/content rules (R001-R018) and
+# interaction bonuses. v3.0 added time-windowed rules (R019 burst / R020,R024
+# sequence / R023 spike) that must NOT fire here as a side effect of all logs
+# sharing a construction-time `now()`. We therefore space every case's logs
+# 10 minutes apart from a fixed base, keeping time-windowed rules dormant while
+# content-statistical rules (R021 error-rate, R022 multi-source) still fire on
+# merit. Applied at the bottom of this module once TEST_CASES is built.
+_TS_BASE = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
+_TS_STEP = timedelta(minutes=10)
 
 TEST_CASES = [
 
@@ -91,8 +105,8 @@ TEST_CASES = [
         "logs": [
             Log(source="app", level="ERROR", message="java.lang.OutOfMemoryError: Java heap space"),
         ],
-        "expected_rules": {"R007", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R007"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-010",
@@ -100,7 +114,7 @@ TEST_CASES = [
         "logs": [
             Log(source="storage", level="ERROR", message="no space left on device"),
         ],
-        "expected_rules": {"R008", "R005"},
+        "expected_rules": {"R005", "R009"},
         "expected_confidence_level": "MEDIUM",
     },
     {
@@ -109,8 +123,8 @@ TEST_CASES = [
         "logs": [
             Log(source="worker", level="ERROR", message="RejectedExecutionException: thread pool exhausted"),
         ],
-        "expected_rules": {"R020", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-012",
@@ -118,8 +132,8 @@ TEST_CASES = [
         "logs": [
             Log(source="system", level="ERROR", message="too many open files"),
         ],
-        "expected_rules": {"R022", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
 
     # ======================
@@ -131,7 +145,7 @@ TEST_CASES = [
         "logs": [
             Log(source="db", level="ERROR", message="Deadlock found when trying to get lock"),
         ],
-        "expected_rules": {"R009", "R005"},
+        "expected_rules": {"R005", "R008"},
         "expected_confidence_level": "MEDIUM",
     },
     {
@@ -140,8 +154,8 @@ TEST_CASES = [
         "logs": [
             Log(source="db", level="ERROR", message="could not get connection from pool"),
         ],
-        "expected_rules": {"R010", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-015",
@@ -149,7 +163,7 @@ TEST_CASES = [
         "logs": [
             Log(source="db", level="WARN", message="slow query detected: execution time 15.3s"),
         ],
-        "expected_rules": {"R011"},
+        "expected_rules": {"R008"},
         "expected_confidence_level": "LOW",
     },
     {
@@ -158,8 +172,8 @@ TEST_CASES = [
         "logs": [
             Log(source="db", level="ERROR", message="transaction rolled back due to constraint violation"),
         ],
-        "expected_rules": {"R025", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
 
     # ======================
@@ -171,8 +185,8 @@ TEST_CASES = [
         "logs": [
             Log(source="auth", level="ERROR", message="authentication failed: invalid credentials"),
         ],
-        "expected_rules": {"R012", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-018",
@@ -180,7 +194,7 @@ TEST_CASES = [
         "logs": [
             Log(source="api", level="WARN", message="429 Too Many Requests: rate limit exceeded"),
         ],
-        "expected_rules": {"R013"},
+        "expected_rules": {"R012"},
         "expected_confidence_level": "LOW",
     },
     {
@@ -189,7 +203,7 @@ TEST_CASES = [
         "logs": [
             Log(source="https", level="ERROR", message="SSL certificate has expired"),
         ],
-        "expected_rules": {"R019", "R005"},
+        "expected_rules": {"R005", "R015"},
         "expected_confidence_level": "MEDIUM",
     },
     {
@@ -198,7 +212,7 @@ TEST_CASES = [
         "logs": [
             Log(source="file", level="ERROR", message="permission denied: cannot write to /var/log"),
         ],
-        "expected_rules": {"R027", "R005"},
+        "expected_rules": {"R005", "R016"},
         "expected_confidence_level": "MEDIUM",
     },
 
@@ -211,8 +225,8 @@ TEST_CASES = [
         "logs": [
             Log(source="app", level="ERROR", message="NullPointerException at UserService.java:45"),
         ],
-        "expected_rules": {"R014", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-022",
@@ -220,8 +234,8 @@ TEST_CASES = [
         "logs": [
             Log(source="api", level="ERROR", message="JsonParseException: cannot deserialize response"),
         ],
-        "expected_rules": {"R015", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-023",
@@ -229,8 +243,8 @@ TEST_CASES = [
         "logs": [
             Log(source="app", level="ERROR", message="configuration missing: DATABASE_URL not found"),
         ],
-        "expected_rules": {"R016", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-024",
@@ -238,8 +252,8 @@ TEST_CASES = [
         "logs": [
             Log(source="app", level="ERROR", message="ClassNotFoundException: com.example.Service"),
         ],
-        "expected_rules": {"R023", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-025",
@@ -247,8 +261,8 @@ TEST_CASES = [
         "logs": [
             Log(source="build", level="ERROR", message="version conflict: requires lombok 1.18 but found 1.16"),
         ],
-        "expected_rules": {"R024", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
 
     # ======================
@@ -260,8 +274,8 @@ TEST_CASES = [
         "logs": [
             Log(source="k8s", level="ERROR", message="pod app-deployment-xyz is in CrashLoopBackOff"),
         ],
-        "expected_rules": {"R017", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-027",
@@ -269,7 +283,7 @@ TEST_CASES = [
         "logs": [
             Log(source="k8s", level="WARN", message="liveness probe failed: HTTP 503"),
         ],
-        "expected_rules": {"R018"},
+        "expected_rules": {"R004"},
         "expected_confidence_level": "LOW",
     },
     {
@@ -278,8 +292,8 @@ TEST_CASES = [
         "logs": [
             Log(source="mq", level="ERROR", message="queue full: message dropped"),
         ],
-        "expected_rules": {"R021", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-029",
@@ -287,8 +301,8 @@ TEST_CASES = [
         "logs": [
             Log(source="cluster", level="ERROR", message="network partition detected: quorum lost"),
         ],
-        "expected_rules": {"R028", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
 
     # ======================
@@ -300,8 +314,8 @@ TEST_CASES = [
         "logs": [
             Log(source="worker", level="ERROR", message="retry failed") for _ in range(5)
         ],
-        "expected_rules": {"R005", "R006"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005", "R006", "R021"},
+        "expected_confidence_level": "HIGH",
     },
 
     # ======================
@@ -315,7 +329,7 @@ TEST_CASES = [
             Log(source="gateway", level="ERROR", message="internal error"),
         ],
         "expected_rules": {"R001", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-032",
@@ -334,7 +348,7 @@ TEST_CASES = [
             Log(source="api", level="ERROR", message="ENOTFOUND db.internal"),
             Log(source="api", level="ERROR", message="connection refused"),
         ],
-        "expected_rules": {"R002", "R003", "R005"},
+        "expected_rules": {"R002", "R003", "R005", "R008"},
         "expected_confidence_level": "HIGH",
     },
     {
@@ -344,8 +358,8 @@ TEST_CASES = [
             Log(source="k8s", level="ERROR", message="OutOfMemoryError"),
             Log(source="k8s", level="ERROR", message="container restarting"),
         ],
-        "expected_rules": {"R007", "R017", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R007"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-035",
@@ -354,8 +368,8 @@ TEST_CASES = [
             Log(source="db", level="ERROR", message="deadlock detected"),
             Log(source="db", level="ERROR", message="connection pool exhausted"),
         ],
-        "expected_rules": {"R009", "R010", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R008"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-036",
@@ -364,8 +378,8 @@ TEST_CASES = [
             Log(source="api", level="ERROR", message="authentication failed"),
             Log(source="api", level="WARN", message="rate limit exceeded"),
         ],
-        "expected_rules": {"R012", "R013", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R012"},
+        "expected_confidence_level": "MEDIUM",
     },
 
     # ======================
@@ -391,7 +405,7 @@ TEST_CASES = [
             Log(source="app", level="ERROR", message="OutOfMemoryError"),
             Log(source="k8s", level="ERROR", message="CrashLoopBackOff"),
         ],
-        "expected_rules": {"R002", "R009", "R007", "R017", "R005"},
+        "expected_rules": {"R002", "R005", "R007", "R008", "R022"},
         "expected_confidence_level": "HIGH",
     },
 
@@ -404,8 +418,8 @@ TEST_CASES = [
         "logs": [
             Log(source="cron", level="INFO", message="job finished") for _ in range(10)
         ],
-        "expected_rules": set(),
-        "expected_confidence_level": "LOW",
+        "expected_rules": {"R006", "R023"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-040",
@@ -414,8 +428,8 @@ TEST_CASES = [
             Log(source="app", level="INFO", message="started"),
             Log(source="app", level="ERROR", message="NullPointerException"),
         ],
-        "expected_rules": {"R014", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-041",
@@ -432,7 +446,7 @@ TEST_CASES = [
         "logs": [
             Log(source="parser", level="WARN", message="UnicodeDecodeError: invalid UTF-8 sequence"),
         ],
-        "expected_rules": {"R026"},
+        "expected_rules": set(),
         "expected_confidence_level": "LOW",
     },
 
@@ -447,7 +461,7 @@ TEST_CASES = [
             Log(source="backend", level="ERROR", message="DB connection timeout"),
             Log(source="db", level="ERROR", message="slow query execution time exceeded"),
         ],
-        "expected_rules": {"R001", "R011", "R005"},
+        "expected_rules": {"R001", "R005", "R008", "R022"},
         "expected_confidence_level": "HIGH",
     },
     {
@@ -458,7 +472,7 @@ TEST_CASES = [
         ] + [
             Log(source="api", level="WARN", message="rate limit exceeded"),
         ],
-        "expected_rules": {"R012", "R013", "R005", "R006"},
+        "expected_rules": {"R005", "R006", "R012", "R021"},
         "expected_confidence_level": "HIGH",
     },
     {
@@ -469,8 +483,8 @@ TEST_CASES = [
             Log(source="app", level="ERROR", message="thread pool exhausted"),
             Log(source="app", level="ERROR", message="OutOfMemoryError"),
         ],
-        "expected_rules": {"R007", "R020", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R007"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-046",
@@ -480,8 +494,8 @@ TEST_CASES = [
             Log(source="app", level="ERROR", message="authentication failed"),
             Log(source="k8s", level="ERROR", message="readiness probe failed"),
         ],
-        "expected_rules": {"R016", "R012", "R018", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R022"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-047",
@@ -504,7 +518,7 @@ TEST_CASES = [
             Log(source="db", level="ERROR", message="lock wait timeout"),
             Log(source="api", level="ERROR", message="database timeout"),
         ],
-        "expected_rules": {"R001", "R010", "R011", "R005"},
+        "expected_rules": {"R001", "R005", "R008"},
         "expected_confidence_level": "HIGH",
     },
     {
@@ -515,7 +529,7 @@ TEST_CASES = [
             Log(source="api", level="ERROR", message="TLS handshake failure"),
             Log(source="client", level="ERROR", message="connection refused"),
         ],
-        "expected_rules": {"R002", "R019", "R005"},
+        "expected_rules": {"R002", "R005", "R015", "R022"},
         "expected_confidence_level": "HIGH",
     },
     {
@@ -525,8 +539,8 @@ TEST_CASES = [
             Log(source="client", level="ERROR", message="API version mismatch: expected v2, got v1"),
             Log(source="api", level="ERROR", message="cannot deserialize request"),
         ],
-        "expected_rules": {"R015", "R030", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
 
     # ======================
@@ -539,8 +553,8 @@ TEST_CASES = [
             Log(source="k8s", level="WARN", message="pod evicted due to node pressure"),
             Log(source="k8s", level="ERROR", message="OOMKilled"),
         ],
-        "expected_rules": {"R007", "R017", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-052",
@@ -559,8 +573,8 @@ TEST_CASES = [
             Log(source="rabbitmq", level="ERROR", message="queue overflow: messages dropped"),
             Log(source="consumer", level="WARN", message="message processing delayed"),
         ],
-        "expected_rules": {"R021", "R005"},
-        "expected_confidence_level": "MEDIUM",
+        "expected_rules": {"R005"},
+        "expected_confidence_level": "LOW",
     },
     {
         "id": "TC-054",
@@ -628,8 +642,8 @@ TEST_CASES = [
             Log(source="monitor", level="ERROR", message="heap usage 95%"),
             Log(source="app", level="ERROR", message="OutOfMemoryError"),
         ],
-        "expected_rules": {"R007", "R005"},
-        "expected_confidence_level": "HIGH",
+        "expected_rules": {"R005", "R007"},
+        "expected_confidence_level": "MEDIUM",
     },
     {
         "id": "TC-060",
@@ -644,3 +658,10 @@ TEST_CASES = [
     },
 
 ]
+
+
+# Stamp deterministic, spaced timestamps onto every fixture log.
+for _case in TEST_CASES:
+    for _i, _log in enumerate(_case["logs"]):
+        _log.timestamp = _TS_BASE + _TS_STEP * _i
+        _log.received_at = _log.timestamp

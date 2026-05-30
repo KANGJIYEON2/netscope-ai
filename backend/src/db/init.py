@@ -9,6 +9,7 @@ from src.model.Tenant import Tenant
 from src.model.User import User
 from src.model.weekly_report import WeeklyReport
 from src.model.refresh_token import RefreshToken
+from src.model.pattern import Pattern, PatternFeedback
 
 
 def init_db():

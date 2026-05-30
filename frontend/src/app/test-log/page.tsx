@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { FlaskConical } from "lucide-react";
 
 import { AnalysisResult as AnalysisResultType } from "@/types/analysis";
 import AnalysisResult from "@/app/analysis/AnalysisResult";
 import { analyzeTestLogs } from "@/lib/api/analysis";
+import { AppShell } from "@/app/components/Layout/AppShell";
 
 type Strategy = "rule" | "gpt";
 
@@ -39,35 +41,22 @@ export default function TestLogPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white">
-      {/* ================= Left Nav ================= */}
-      <aside className="w-56 border-r border-zinc-800 p-4">
-        <nav className="space-y-1">
-          <a
-            href="/test-log"
-            className="block rounded px-3 py-2 text-sm bg-zinc-800 text-white font-medium"
-          >
-            Test Log
-          </a>
-          <a
-            href="/projects"
-            className="block rounded px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-white"
-          >
-            Project Log
-          </a>
-        </nav>
-      </aside>
-
+    <AppShell>
       {/* ================= Main ================= */}
-      <main className="flex-1 max-w-5xl mx-auto px-8 py-10 space-y-10">
+      <main className="mx-auto max-w-5xl space-y-10 px-8 py-10">
         {/* Header */}
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Test Log Analysis
-          </h1>
-          <p className="text-sm text-zinc-400">
-            테스트 로그를 즉시 분석합니다 · DB 저장 ❌
-          </p>
+        <header className="flex items-center gap-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-2.5 text-emerald-400">
+            <FlaskConical size={22} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Test Log Analysis
+            </h1>
+            <p className="text-sm text-zinc-400">
+              테스트 로그를 즉시 분석합니다 · DB 저장 ❌
+            </p>
+          </div>
         </header>
 
         {/* ================= Input Card ================= */}
@@ -149,6 +138,6 @@ INFO healthcheck ok`}
           </section>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

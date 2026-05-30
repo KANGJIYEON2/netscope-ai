@@ -7,9 +7,10 @@ interface AnalysisResultProps {
 }
 
 const severityBadge: Record<AnalysisResultType["severity"], string> = {
-  LOW: "bg-green-500/20 text-green-400",
-  MEDIUM: "bg-yellow-500/20 text-yellow-400",
+  LOW: "bg-cyan-500/20 text-cyan-400",
+  MEDIUM: "bg-amber-500/20 text-amber-400",
   HIGH: "bg-red-500/20 text-red-400",
+  CRITICAL: "bg-fuchsia-500/20 text-fuchsia-400",
 };
 
 export default function AnalysisResult({ result }: AnalysisResultProps) {

@@ -125,7 +125,7 @@ export default function ProjectOverviewTab() {
           </Card>
 
           <Card title="Recent Analyses" icon={<Activity size={16} className="text-sky-400" />}>
-            <RecentAnalyses reports={reports.slice(0, 6)} />
+            <RecentAnalyses reports={reports.slice(0, 6)} projectId={projectId} />
           </Card>
         </div>
 

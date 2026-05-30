@@ -105,7 +105,7 @@ export default function ProjectAnalysesTab() {
             ))}
           </div>
         ) : (
-          <RecentAnalyses reports={reports} />
+          <RecentAnalyses reports={reports} projectId={projectId} />
         )}
       </Card>
     </div>

@@ -20,10 +20,28 @@ class AnalysisRequestDTO(BaseModel):
     )
 
 
+class InvestigationNote(BaseModel):
+    at: str
+    text: str
+
+
+class InvestigationUpdateDTO(BaseModel):
+    """조사 상태 / 실제 원인 갱신 요청."""
+    status: str | None = None  # open | investigating | resolved | false_positive
+    resolution: str | None = None
+
+
+class NoteCreateDTO(BaseModel):
+    text: str = Field(min_length=1)
+
+
 class AnalysisResultDTO(BaseModel):
     """
     분석 결과 응답 DTO
     """
+    # 분석 식별자 (조사/메모 기능이 특정 분석을 가리키기 위해 필요)
+    id: str | None = None
+
     summary: str
     severity: SeverityLevel
     confidence: float = Field(ge=0.0, le=1.0)
@@ -33,6 +51,14 @@ class AnalysisResultDTO(BaseModel):
 
     # 왜 이렇게 판단됐는지
     matched_rules: List[str] = Field(default_factory=list)
+
+    # GPT 보고서 본문 [{title, body}] — 상단 summary 다음의 상세 설명
+    report_sections: List[dict] = Field(default_factory=list)
+
+    # 조사 & 해결 (Investigation)
+    investigation_status: str = Field(default="open")
+    resolution: str | None = None
+    notes: List[dict] = Field(default_factory=list)
 
     # 학습된 패턴 매칭 (L2)
     matched_patterns: List[dict] = Field(default_factory=list)

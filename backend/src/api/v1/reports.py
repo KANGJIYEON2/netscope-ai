@@ -61,12 +61,17 @@ def list_reports(
 
     return [
         AnalysisResultDTO(
+            id=r.id,
             summary=r.summary,
             severity=r.severity,
             confidence=r.confidence,
             suspected_causes=r.suspected_causes,
             recommended_actions=r.recommended_actions,
             matched_rules=r.matched_rules,
+            report_sections=r.report_sections or [],
+            investigation_status=r.investigation_status or "open",
+            resolution=r.resolution,
+            notes=r.notes or [],
             strategy_used=r.strategy_used,
             received_at=r.received_at,
         )
@@ -219,12 +224,17 @@ def get_report(
         raise HTTPException(status_code=404, detail="Report not found")
 
     return AnalysisResultDTO(
+        id=result.id,
         summary=result.summary,
         severity=result.severity,
         confidence=result.confidence,
         suspected_causes=result.suspected_causes,
         recommended_actions=result.recommended_actions,
         matched_rules=result.matched_rules,
+        report_sections=result.report_sections or [],
+        investigation_status=result.investigation_status or "open",
+        resolution=result.resolution,
+        notes=result.notes or [],
         strategy_used=result.strategy_used,
         received_at=result.received_at,
     )

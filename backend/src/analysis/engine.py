@@ -66,6 +66,7 @@ class AnalysisEngine:
         ]
 
         strategy_used = "rule"
+        report_sections: list[dict] = []
 
         # 2️⃣ GPT 보강
         if strategy == AnalysisStrategy.GPT and self.gpt.is_enabled():
@@ -96,6 +97,7 @@ class AnalysisEngine:
             )
 
             result["summary"] = g.get("summary", result["summary"])
+            report_sections = g.get("sections", []) or []
 
         # 3️⃣ Severity 계산 (confidence + 룰 조합 기반)
         confidence = result["confidence"]
@@ -139,6 +141,7 @@ class AnalysisEngine:
             "recommended_actions": result["recommended_actions"],
             "matched_rules": list({s["rule_id"] for s in signals}),
             "signals": signals,                     # 🔥 이제 항상 있음
+            "report_sections": report_sections,     # 🔥 GPT 보고서 본문 (rule-only면 [])
             "strategy_used": strategy_used,
         }
 

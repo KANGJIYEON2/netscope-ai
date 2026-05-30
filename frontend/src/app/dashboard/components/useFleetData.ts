@@ -103,7 +103,11 @@ export function useFleetData(pollMs = 15000) {
 
   useEffect(() => {
     alive.current = true;
-    loadOnce(false);
+    // Initial fetch on mount. loadOnce is async — setState happens after the
+    // awaited network calls, so this is data-fetching, not a synchronous
+    // cascading render. The lint rule can't see across the async boundary.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadOnce(true);
     const id = setInterval(() => loadOnce(true), pollMs);
     return () => {
       alive.current = false;

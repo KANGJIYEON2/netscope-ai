@@ -6,6 +6,13 @@ import { Stethoscope, Wrench, ChevronDown, Cpu } from "lucide-react";
 
 import type { ReportSummary } from "@/lib/api/report";
 import { severityConfig, asSeverity } from "@/styles/severity";
+import { InvestigationPanel } from "@/app/components/investigation/InvestigationPanel";
+
+const INV_BADGE: Record<string, { label: string; cls: string }> = {
+  investigating: { label: "조사중", cls: "bg-amber-500/20 text-amber-300" },
+  resolved: { label: "해결됨", cls: "bg-emerald-500/20 text-emerald-300" },
+  false_positive: { label: "오탐", cls: "bg-rose-500/20 text-rose-300" },
+};
 
 function ConfidenceBar({ value, hex }: { value: number; hex: string }) {
   const pct = Math.round(value * 100);
@@ -27,11 +34,26 @@ function ConfidenceBar({ value, hex }: { value: number; hex: string }) {
   );
 }
 
-function AnalysisRow({ r, index }: { r: ReportSummary; index: number }) {
+function AnalysisRow({
+  r,
+  index,
+  projectId,
+}: {
+  r: ReportSummary;
+  index: number;
+  projectId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const sev = asSeverity(r.severity);
   const cfg = severityConfig[sev];
+  const sections = r.report_sections ?? [];
+  const invBadge =
+    r.investigation_status && r.investigation_status !== "open"
+      ? INV_BADGE[r.investigation_status]
+      : null;
   const hasDetail =
+    !!projectId ||
+    sections.length > 0 ||
     (r.suspected_causes?.length ?? 0) > 0 ||
     (r.recommended_actions?.length ?? 0) > 0;
 
@@ -53,6 +75,11 @@ function AnalysisRow({ r, index }: { r: ReportSummary; index: number }) {
         <p className="min-w-0 flex-1 truncate text-sm text-zinc-200">
           {r.summary}
         </p>
+        {invBadge && (
+          <span className={invBadge.cls + " hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline"}>
+            {invBadge.label}
+          </span>
+        )}
         <ConfidenceBar value={r.confidence} hex={cfg.hex} />
         <span className="hidden items-center gap-1 rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-400 sm:flex">
           <Cpu size={11} /> {r.strategy_used}
@@ -80,6 +107,27 @@ function AnalysisRow({ r, index }: { r: ReportSummary; index: number }) {
             transition={{ duration: 0.25 }}
             className="border-t border-zinc-800/70"
           >
+            {sections.length > 0 && (
+              <div className="space-y-2 border-b border-zinc-800/70 px-4 py-4">
+                {sections.map((s, i) => (
+                  <div key={i}>
+                    <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                      <span
+                        className="flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold"
+                        style={{ background: `${cfg.hex}22`, color: cfg.hex }}
+                      >
+                        {i + 1}
+                      </span>
+                      {s.title}
+                    </p>
+                    <p className="whitespace-pre-line pl-5 text-xs leading-relaxed text-zinc-400">
+                      {s.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="grid gap-4 px-4 py-4 sm:grid-cols-2">
               <div>
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-rose-300">
@@ -120,6 +168,13 @@ function AnalysisRow({ r, index }: { r: ReportSummary; index: number }) {
                 </div>
               )}
             </div>
+
+            {/* 조사 & 해결 (프로젝트 컨텍스트에서만 편집 가능) */}
+            {projectId && r.id && (
+              <div className="px-4 pb-4">
+                <InvestigationPanel projectId={projectId} report={r} />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -127,7 +182,13 @@ function AnalysisRow({ r, index }: { r: ReportSummary; index: number }) {
   );
 }
 
-export function RecentAnalyses({ reports }: { reports: ReportSummary[] }) {
+export function RecentAnalyses({
+  reports,
+  projectId,
+}: {
+  reports: ReportSummary[];
+  projectId?: string;
+}) {
   if (reports.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-800 py-12 text-center">
@@ -139,7 +200,7 @@ export function RecentAnalyses({ reports }: { reports: ReportSummary[] }) {
   return (
     <div className="space-y-2.5">
       {reports.map((r, i) => (
-        <AnalysisRow key={i} r={r} index={i} />
+        <AnalysisRow key={r.id ?? i} r={r} index={i} projectId={projectId} />
       ))}
     </div>
   );

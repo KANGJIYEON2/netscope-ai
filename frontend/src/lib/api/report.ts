@@ -1,16 +1,27 @@
 import { apiClient } from "@/lib/api/client";
-import type { Severity, Strategy } from "@/types/analysis";
+import type {
+  Severity,
+  Strategy,
+  ReportSection,
+  InvestigationStatus,
+  InvestigationNote,
+} from "@/types/analysis";
 
 /* ======================
  * Report List
  * ====================== */
 export type ReportSummary = {
+  id?: string;
   summary: string;
   severity: Severity;
   confidence: number;
   suspected_causes: string[];
   recommended_actions: string[];
   matched_rules: string[];
+  report_sections?: ReportSection[];
+  investigation_status?: InvestigationStatus;
+  resolution?: string | null;
+  notes?: InvestigationNote[];
   strategy_used: Strategy;
   received_at: string;
 };

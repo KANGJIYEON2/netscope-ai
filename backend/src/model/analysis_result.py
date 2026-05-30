@@ -28,6 +28,17 @@ class AnalysisResult(Base):
     # 🔥 Rule Engine 결과 (weekly용)
     signals = Column(JSONB, nullable=False)
 
+    # 🔥 GPT 보고서 본문 [{title, body}] — summary 다음의 상세 설명 (rule-only면 빈 배열)
+    report_sections = Column(JSONB, nullable=True, default=list)
+
+    # 🔥 조사 & 해결 (Investigation) — 사람이 기록하는 사후 조사 현황/학습
+    #    status: open | investigating | resolved | false_positive
+    #    resolution: 실제 규명된 원인 (예: "프론트 경로 설정 오류")
+    #    notes: 메모 타임라인 [{at, text}]
+    investigation_status = Column(String, nullable=True, default="open")
+    resolution = Column(Text, nullable=True)
+    notes = Column(JSONB, nullable=True, default=list)
+
     # 🔥 분석 방식
     strategy_used = Column(String, nullable=False)
 

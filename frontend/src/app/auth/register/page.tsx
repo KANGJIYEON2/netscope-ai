@@ -18,8 +18,8 @@ export default function RegisterPage() {
       setError(null);
 
       await register({ email, password }); // ✅ 쿠키 저장됨(백엔드)
-      router.push("/projects");
-    } catch (e: any) {
+      router.push("/dashboard");
+    } catch {
       // 백엔드에서 409(이메일 중복) 처리했으면 여기서 메시지 분기 가능
       setError("회원가입 실패");
     } finally {

@@ -566,6 +566,10 @@ docker compose up -d --build
 # Frontend   → http://localhost:3000  (→ /dashboard 리다이렉트)
 ```
 
+> ⚠️ **Windows+Docker dev 퀴크**: frontend 재시작 직후 프로젝트 하위 탭(`/analyses·/logs·/patterns`)이
+> 일시 **404**가 날 수 있음(Turbopack 콜드스캔). **`docker compose restart frontend` 한 번 더**면 복구.
+> dev 환경 한정이며 컨테이너 파일·`next build`(운영)는 정상. 상세 → [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) §9-7.
+
 ### 환경변수 (`backend/.env.docker` — git 미추적)
 
 | 변수 | 용도 |

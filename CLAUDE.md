@@ -190,6 +190,10 @@ docker compose exec postgres psql -U netscope -d netscope -c \
 # 실시간 데모: /dashboard 열어둔 채 ingest 한 방 (X-Tenant-ID/X-Project-ID 헤더)
 ```
 
+> ⚠️ **Windows+Docker dev 퀴크**: frontend 재시작/새 라우트 추가 후 `[projectId]/analyses·logs·patterns`
+> 하위 탭이 **일시 404**가 날 수 있음(Turbopack 콜드스캔). **`docker compose restart frontend` 한 번 더**면 복구.
+> `.next` 캐시 볼륨은 지우지 말 것(오히려 콜드스캔 유발). 컴포넌트 수정이 핫리로드 안 되면 동일하게 재시작. 코드 버그 아님 → `docs/DEVELOPMENT.md §9-7`.
+
 로컬 수동 실행·Postgres 접속·데모 계정 상세 → [`README.md`](./README.md) 의 "실행 / 배포".
 
 ---

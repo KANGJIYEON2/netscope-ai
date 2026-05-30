@@ -332,6 +332,19 @@ npm run build
 - 에이전트가 BOM/CR/제어문자 클린업하므로 PowerShell `Add-Content`로 라인 주입해도 안전.
 - 단, 소스 파일을 직접 편집할 땐 BOM 없는 UTF-8 사용 (Python 3.10+ 는 BOM도 읽지만 파일 일관성 위해).
 
+### 9-7. "프로젝트 탭(/analyses·/logs·/patterns)이 404" ⚠️ Windows + Docker
+- **dev 환경 한정 Turbopack 콜드스캔 퀴크**. Next 16 Turbopack이 Windows 바인드마운트에서
+  `[projectId]` **하위 동적 세그먼트**를 dev 서버 콜드 스타트 시 못 잡는 경우가 있음
+  (`[projectId]/page.tsx`(Overview)는 200, 하위 `analyses/logs/patterns`만 404).
+- **해결: `docker compose restart frontend` 한 번 더** (파일이 안정된 상태에서 재스캔되면 잡힘).
+  `.next` 캐시(named volume)는 지워도 안 되며 오히려 콜드스캔을 유발할 수 있음 — 단순 재시작이 정답.
+- 컨테이너 내 파일·커밋 코드·`next build`(운영)는 정상. **코드 버그 아님**.
+- 새 라우트를 추가한 직후에도 동일 — 추가 후 frontend 재시작.
+
+### 9-8. dev 인디케이터 / 헤드리스 점검
+- Next dev 인디케이터는 `next.config.ts`의 `devIndicators.position`으로 위치 조정(기본 bottom-left → 본 프로젝트는 `bottom-right`). 운영 빌드엔 미표시.
+- Playwright로 점검 시: 로그인 페이지는 **`waitUntil:"networkidle"` + 짧은 대기**(React 하이드레이션 후 폼 입력) 필요. SSE가 열린 대시보드/프로젝트 페이지는 `networkidle`가 영원히 안 끝나므로 **`domcontentloaded`** 사용.
+
 ---
 
 ## 10. 디버깅 팁

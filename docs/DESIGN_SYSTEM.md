@@ -1,12 +1,12 @@
 # Design System — Incident Report Dashboard
 
 > **목적**: 차별점 ② "보고서급 대시보드"의 일관성·임팩트를 보장하는 디자인 토큰·컴포넌트 룰북.
-> **현재 상태 (2026-05-29)**: 본 문서는 대부분 **목표 스펙(SSOT)** 이며 아직 코드에 미반영. 구체적으로:
-> - `frontend/src/styles/severity.ts` = **빈 파일** (§9 의 `severityToken`/`ruleColor` 헬퍼 미구현)
-> - `globals.css` 에 §9-1 의 `--surface-*`/`--sev-*` CSS 변수 **없음**
-> - 실제 `SeverityBadge.tsx` 는 스펙과 다름 — prop 이 `level: "LOW"|"MEDIUM"|"HIGH"|"UNKNOWN"`(§5-1 의 `severity`+`CRITICAL`+`confidence` 아님), 색은 `bg-red-600`/`bg-yellow-500`/`bg-emerald-600` **하드코딩**(이 문서가 금지하는 안티패턴), 아이콘·신뢰도 표시 없음
+> **현재 상태 (2026-05-30)**: 핵심은 **구현 완료**. 남은 항목만 목표 스펙(SSOT)으로 둔다:
+> - ✅ `frontend/src/styles/severity.ts` = **정본 구현됨** — `severityConfig`(label/bg/text/border/badge/**hex/hexSoft/gradient**) + `SEVERITY_ORDER`/`asSeverity`/`confidenceHex`. 컬러: LOW=cyan · MEDIUM=amber · HIGH=red · CRITICAL=fuchsia.
+> - ✅ 차트(ECharts)·`AnalysisResult` 보고서 레이아웃·Fleet 대시보드·실시간 LIVE 배지 구현(§6-1).
+> - 🟡 `globals.css` 의 `--surface-*`/`--sev-*` CSS 변수, 일부 레거시 `SeverityBadge.tsx` 정리는 미반영(목표).
 >
-> → 즉 이 문서는 "이렇게 만들자"는 타깃이고, 새 컴포넌트는 여기에 맞춰 구현하면서 `severity.ts` 를 채우는 게 정답이다.
+> → 새 컴포넌트는 **반드시 `severity.ts` 정본**을 import(하드코딩 금지). 차트는 `components/charts/EChart.tsx` 래퍼 사용.
 
 ## 목차
 - [1. 디자인 원칙](#1-디자인-원칙)
@@ -165,9 +165,11 @@ row5: RelatedLogs              [12]
 
 ## 6. 데이터 시각화
 
-### 6-1. 차트 라이브러리 정책
-- 단순 선/막대/도넛: **자체 SVG 컴포넌트** (의존성 0)
-- 복잡한 차트(인시던트 타임라인 등): `recharts` 1개로 한정. d3 직접 의존 금지.
+### 6-1. 차트 라이브러리 정책  ✅ 구현됨
+- **채택: Apache ECharts** (`echarts`) — framework-agnostic 코어를 React 19/Next 16용으로 직접 래핑(`frontend/src/app/components/charts/EChart.tsx`: `useRef`+`echarts.init`+`ResizeObserver`+`dispose`).
+  - (recharts는 "너무 단순"하다는 요구로 미채택. 자체 SVG 헬퍼는 작은 막대/게이지에 한해 허용)
+- 구현 차트: `ConfidenceTrendChart`(그라데이션 area+글로우+임계선 0.45/0.75), `ConfidenceGauge`(도넛 게이지), `SeverityDonut`.
+- 모션 `framer-motion` · 아이콘 `lucide-react` · **색은 `styles/severity.ts` 의 hex/gradient 정본만** (컴포넌트 하드코딩 금지).
 
 ### 6-2. 타임라인
 - 가로축: 인시던트 윈도우 (start~end)

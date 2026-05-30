@@ -39,18 +39,24 @@
 ```bash
 git clone <repo> && cd netscope-ai
 
-# backend/.env.docker 에 SECRET_KEY(필수) · OPENAI_API_KEY(선택) 채움
+# backend/.env.docker 에 SECRET_KEY(필수) · OPENAI_API_KEY(선택) · INGEST_API_KEY(선택) 채움
 #   (compose backend 가 env_file: ./backend/.env.docker 로 주입.
-#    DATABASE_URL/APP_ENV 는 docker-compose.yml 이 직접 설정)
+#    DATABASE_URL/APP_ENV 는 docker-compose.yml 이 직접 설정. .env.docker 는 git 미추적)
+#   ※ OPENAI_API_KEY 를 채우거나 바꾼 뒤에는 env_file 재주입 위해 backend 재생성:
+#     docker compose up -d --force-recreate backend
 
 docker compose up -d --build
 # Postgres   → localhost:5432  (volume: postgres_data)
 # Backend    → http://localhost:8000  (Swagger: /docs)
-# Frontend   → http://localhost:3000  (→ /auth/login 리다이렉트)
+# Frontend   → http://localhost:3000  (로그인 후 → /dashboard Fleet 커맨드)
 
 # 데모 데이터 시드 (alice/bob/carol@demo.io · PW Demo1234!)
 docker compose exec backend python -m scripts.seed --reset
+# 대량 데모(트렌드/이슈/라이브피드 채우기, 14일 backdate)
+docker compose exec backend python -m scripts.seed_big
 ```
+
+> **실시간 데모**: `/dashboard` 를 열어둔 채 `POST /ingest`(X-Tenant-ID/X-Project-ID 헤더)로 에러 로그를 쏘면, 새 분석이 SSE로 즉시 화면에 뜬다(토스트 + Issues Board + Live Activity).
 
 종료/초기화: `docker compose down` (데이터 유지) · `docker compose down -v` (DB wipe).
 
@@ -281,16 +287,16 @@ npm run build
 | --- | --- | --- | --- |
 | `SECRET_KEY` | backend | **(필수, 기본 없음)** | JWT 서명 키. 미설정 시 부팅 실패 |
 | `DATABASE_URL` | backend | `None` | `postgresql+psycopg://...` — 없으면 DB 라우트 동작 안 함 |
-| `OPENAI_API_KEY` | backend | `None` | 미설정 시 GPT 분석/요약 비활성. `strategy=gpt`도 룰만 실행 |
+| `OPENAI_API_KEY` | backend | `None` | 채우면 `strategy=gpt` 활성(구조화 보고서 `report_sections`). 비우면 룰만 폴백 |
+| `INGEST_API_KEY` | backend | `None` | 채우면 `/ingest`가 `X-API-Key` 헤더 요구(에이전트 인증). 비우면 미적용 |
 | `APP_ENV` | backend | `local` | `local \| prod` (`is_prod` 분기) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | backend | `60` | access 토큰/쿠키 TTL |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | backend | `14` | refresh 토큰/쿠키 TTL |
-| `FRONTEND_ORIGIN` | backend | `http://localhost:3000` | **CORS 단일 오리진** (`ALLOWED_ORIGINS` 아님) |
+| `FRONTEND_ORIGIN` | backend | `http://localhost:3000` | **CORS 오리진(콤마 구분 복수 가능)** → `settings.cors_origins` |
 | `COOKIE_SECURE` | backend | `False` | 운영 HTTPS 에서 `True` 로 |
 | `COOKIE_SAMESITE` | backend | `lax` | 쿠키 SameSite |
-| `NEXT_PUBLIC_API_BASE_URL` | frontend | `http://localhost:8000` | API 위치 |
-
-> ⚠️ `LOG_LEVEL` · `ALLOWED_ORIGINS` · `REDIS_URL` 은 **현재 config.py 에 없음** (미구현). CORS 다환경(`ALLOWED_ORIGINS` 목록화)은 P1 항목.
+| `NEXT_PUBLIC_API_BASE_URL` | frontend | `http://localhost:8000` | API 위치 (SSE EventSource도 이 베이스 사용) |
+| `NETSCOPE_API_URL` / `_API_KEY` / `_OFFSET_DIR` | agent | — | 에이전트 ingest URL · X-API-Key · 오프셋 디렉터리 |
 
 ---
 
@@ -301,8 +307,14 @@ npm run build
 - `level=ERROR` 와 메시지에 `timeout` 포함된 로그 2개 이상 넣어 보기.
 
 ### 9-2. "GPT 선택했는데 결과가 룰만 나옴"
-- `OPENAI_API_KEY` 미설정 → 조용한 폴백. 백엔드 로그 또는 응답의 `strategy_used` 확인.
-- 모델명 이슈 — 코드는 `gpt-4.1-mini`. 의도가 `gpt-4o-mini`라면 `gpt_analyzer.py` 수정 (P0 항목).
+- `OPENAI_API_KEY` 미설정/빈값 → 조용한 폴백. 응답 `strategy_used` 가 `gpt` 인지 확인.
+- ⚠️ env_file은 컨테이너 **생성 시점**에 읽힘 — `.env.docker`에 키를 채웠으면 `docker compose up -d --force-recreate backend` 로 재주입(단순 restart는 안 됨).
+- 정상 동작 시 응답에 `report_sections`(상세 보고서 본문)가 채워짐. 모델: `gpt-4o-mini`.
+
+### 9-2b. "실시간(SSE)이 안 들어옴"
+- 백엔드 로그에 `GET /events/stream 200` 이 있는지 확인 — 없으면 브라우저가 **옛 JS**(하드 리프레시 Ctrl+Shift+R 필요) 또는 미로그인.
+- 이벤트는 **연결 이후** 발생분만 푸시(historical X). `/ingest`가 200인데 `matched_rules`가 비면 분석 저장 안 됨 → `analysis` 이벤트 없음.
+- 보고 있는 화면이 **이벤트의 project_id와 같은 프로젝트**인지(프로젝트 페이지는 자기 프로젝트만 반응).
 
 ### 9-3. "프론트가 API에 못 붙음"
 - 백엔드 CORS 는 `FRONTEND_ORIGIN` **단일 오리진**만 허용(+`allow_credentials`). 프론트 주소가 기본 `http://localhost:3000` 가 아니면 `FRONTEND_ORIGIN` 을 맞춰야 함.

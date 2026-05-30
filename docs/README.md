@@ -8,11 +8,11 @@
 | --- | --- | --- |
 | [`../CLAUDE.md`](../CLAUDE.md) | 모두 | 프로젝트 전체 개요 · 디렉터리 매핑 · 갭 · 컨벤션 |
 | [`PM_ENHANCEMENT_PLAN.md`](./PM_ENHANCEMENT_PLAN.md) | **PM/기획** | 고도화 로드맵 P0~P3, 갭 인벤토리, 보고서 대시보드 명세 |
-| [`API_REFERENCE.md`](./API_REFERENCE.md) | FE/BE 통합 | 엔드포인트 스펙, DTO 카탈로그, P1-0 응답 확장 |
+| [`API_REFERENCE.md`](./API_REFERENCE.md) | FE/BE 통합 | 엔드포인트 스펙, DTO 카탈로그, **SSE/조사/GPT 보고서** |
 | [`RULE_ENGINE.md`](./RULE_ENGINE.md) | BE/도메인 | R001~R024 v3.0 정본, 스코어링 공식, 룰 추가 가이드 |
 | ⭐ [`RULE_LEARNING.md`](./RULE_LEARNING.md) | BE/도메인/PM | **사용자 로그 패턴 학습** — L0~L4 구현 완료 (차별점 ③) |
-| [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) | FE/디자인 | 컬러 토큰, 타이포, 컴포넌트 룰, 인쇄 모드 |
-| [`DEVELOPMENT.md`](./DEVELOPMENT.md) | 신규 합류자 | 5분 셋업, 컨벤션, 테스트, Git/PR 정책 |
+| [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) | FE/디자인 | 컬러 토큰(severity hex 포함), ECharts, 컴포넌트 룰 |
+| [`DEVELOPMENT.md`](./DEVELOPMENT.md) | 신규 합류자 | 5분 셋업, env(GPT/ingest 키), 테스트, Git/PR 정책 |
 
 ## 🚦 빠른 진입
 
@@ -22,8 +22,11 @@
 - **룰 / 학습 도메인** → `RULE_ENGINE.md` → `RULE_LEARNING.md`
 - **외부 통합/SDK** → `API_REFERENCE.md`
 
-## 📌 세 차별점
+## 📌 차별점
 
 1. **설명 가능한 AI** — 응답에 항상 `matched_rules` (룰 ID + 점수 + 근거). 정본: `RULE_ENGINE.md`
-2. **보고서급 대시보드** — 회고/데모에 그대로 쓰이는 UI. 정본: `PM_ENHANCEMENT_PLAN.md` §3-0 + `DESIGN_SYSTEM.md`
-3. **사용자 환경에 함께 자라는 룰셋** — 패턴 학습으로 도입 첫 주에 환경 맞춤 룰 자동 생성. 정본: `RULE_LEARNING.md`
+2. **보고서급 Fleet 대시보드** — ECharts 기반, 회고/데모에 그대로 쓰이는 UI + **실시간(SSE)** 갱신. 정본: `DESIGN_SYSTEM.md` + `API_REFERENCE.md`(Events)
+3. **사용자 환경에 함께 자라는 룰셋** — 패턴 학습(L0~L4)으로 환경 맞춤 룰 자동 생성. 정본: `RULE_LEARNING.md`
+4. **조사 → 학습 루프** — 사람이 남긴 실제 원인(resolution)이 유사 사례 추천으로 환류. 정본: `API_REFERENCE.md`(Investigation)
+
+> **최근 사이클(2026-05-30)**: GPT 구조화 보고서 · 조사/해결 기록+학습 · 실시간 SSE 푸시 · Fleet 대시보드(ECharts)/프로젝트 4탭 · 에이전트 신뢰성/배포 · `/ingest` 500 버그 수정.
